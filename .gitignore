@@ -40,6 +40,12 @@ build/
 dist/
 *.egg-info/
 
+# Node modules
+node_modules/
+
+# Supabase temp
+supabase/.temp/
+
 # OS
 .DS_Store
 Thumbs.db
