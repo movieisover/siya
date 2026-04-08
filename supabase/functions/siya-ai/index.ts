@@ -1,5 +1,5 @@
 // 시야 AI — Supabase Edge Function (Claude API 프록시)
-// Deno runtime (Supabase Edge Functions)
+// 웹 검색 도구 포함
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -11,7 +11,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -34,7 +33,6 @@ serve(async (req) => {
       )
     }
 
-    // Claude API 호출
     const response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
       headers: {
@@ -44,9 +42,15 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: system || '',
         messages,
+        tools: [
+          {
+            type: 'web_search_20250305',
+            name: 'web_search',
+          }
+        ],
       }),
     })
 

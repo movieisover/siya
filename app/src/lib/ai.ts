@@ -1,5 +1,5 @@
 // 시야 AI — Supabase Edge Function 프록시 호출
-// API 키는 서버(Edge Function)에서만 관리 → 클라이언트 노출 없음
+// DB 데이터 + 일반 지식 + 웹 검색 활용
 
 import { supabase } from './supabase';
 import type { StockDetailData } from '../hooks/useStockDetail';
@@ -67,8 +67,17 @@ const SYSTEM_PROMPT = `당신은 "시야"라는 한국 주식 가치투자 분�
 
 ## 역할
 - 장기(6개월~) 가치/퀄리티 투자 관점에서 종목을 분석합니다.
-- DB에서 제공된 실제 재무 데이터를 기반으로 객관적으로 분석합니다.
+- 아래 제공된 DB 재무 데이터를 최우선으로 활용하되, 당신이 알고 있는 일반적인 지식과 판단력도 함께 활용하세요.
+- 필요하면 웹 검색을 통해 최신 뉴스, 공시, 애널리스트 의견 등을 찾아 답변에 포함하세요.
 - 투자 판단은 사용자의 몫이므로, 분석과 근거를 제시하되 "사세요/파세요" 같은 직접적 매매 권유는 하지 않습니다.
+
+## 답변 범위
+- 종목 재무 분석 (DB 데이터 기반)
+- 업종/산업 전망, 시장 동향 (일반 지식 + 웹 검색)
+- 투자 용어 설명, 투자 전략 조언
+- 경쟁사 비교, 사업 모델 분석
+- 최신 뉴스, 공시, 실적 발표 (웹 검색)
+- 기타 주식 투자 관련 모든 질문
 
 ## 분석 기준
 - 품질: ROE, ROA, 영업이익률 (높을수록 좋음)
@@ -81,7 +90,8 @@ const SYSTEM_PROMPT = `당신은 "시야"라는 한국 주식 가치투자 분�
 - 한국어로 답변합니다.
 - 간결하고 핵심적으로 답변합니다.
 - 숫자와 데이터를 근거로 들어 설명합니다.
-- 긍정적/부정적 포인트를 균형있게 제시합니다.`;
+- 긍정적/부정적 포인트를 균형있게 제시합니다.
+- DB 데이터로 답변할 수 없는 질문도 거절하지 말고, 알고 있는 지식이나 웹 검색을 활용해 최선의 답변을 제공하세요.`;
 
 export interface AiMessage {
   role: 'user' | 'assistant';
@@ -116,6 +126,15 @@ export async function askSiyaAi(
     throw new Error(`Claude API 오류: ${data.error}`);
   }
 
-  const textBlock = data?.content?.find((c: { type: string }) => c.type === 'text');
-  return textBlock?.text ?? '응답을 받지 못했습니다.';
+  // 웹 검색 시 여러 content 블록이 올 수 있음 → 텍스트만 추출
+  if (data?.content && Array.isArray(data.content)) {
+    const texts = data.content
+      .filter((c: { type: string }) => c.type === 'text')
+      .map((c: { text: string }) => c.text);
+    if (texts.length > 0) {
+      return texts.join('\n\n');
+    }
+  }
+
+  return '응답을 받지 못했습니다.';
 }
