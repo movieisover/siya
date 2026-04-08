@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(python -m pip:*)",
+      "Bash(python:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(grep -E \"\\\\.md$\")",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@supabase/supabase-js/package.json'\\); console.log\\(pkg.version\\)\")",
+      "Bash(npx vite:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
+    ]
+  }
+}

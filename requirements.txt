@@ -1,0 +1,26 @@
+# 한국 주식 가치투자 분석 앱 - 의존성
+# pip install -r requirements.txt
+
+# 데이터 수집
+finance-datareader>=0.9.50
+pykrx>=1.0.45
+opendartreader>=0.2.1
+
+# 데이터 처리
+pandas>=2.0.0
+numpy>=1.24.0
+
+# 시각화 (Phase 3+)
+# plotly>=5.18.0
+# streamlit>=1.29.0
+
+# 백엔드 (Phase 3+)
+# fastapi>=0.104.0
+# uvicorn>=0.24.0
+
+# 데이터베이스 (Phase 2+)
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.9
+
+# 개발 도구
+python-dotenv>=1.0.0

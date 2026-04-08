@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시야 - 앱 화면 목업</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #3b82f6;
+    --accent2: #06b6d4;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #475569;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #060b14;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  h1.page-title {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text2);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .page-subtitle {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 60px;
+    letter-spacing: -0.5px;
+  }
+  .page-subtitle span {
+    color: var(--accent);
+  }
+
+  /* Screens Layout */
+  .screens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .screen-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding-left: 4px;
+  }
+  .screen-label span {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
+  /* Phone frame */
+  .phone {
+    background: var(--surface);
+    border-radius: 32px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #0d1520, 0 32px 64px rgba(0,0,0,0.6);
+    position: relative;
+  }
+
+  .phone-notch {
+    height: 36px;
+    background: #0a0e17;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .notch-pill {
+    width: 80px;
+    height: 20px;
+    background: #060b14;
+    border-radius: 10px;
+  }
+
+  .phone-content {
+    padding: 0;
+    min-height: 580px;
+  }
+
+  /* ===== SCREEN 1: 홈 대시보드 ===== */
+  .home-header {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    padding: 20px 20px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .home-header::after {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .home-greeting {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 4px;
+  }
+  .home-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .home-title span { color: var(--accent); }
+
+  .market-summary {
+    display: flex;
+    gap: 10px;
+  }
+  .market-chip {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 8px 12px;
+    flex: 1;
+  }
+  .market-chip .name { font-size: 10px; color: var(--text2); margin-bottom: 2px; }
+  .market-chip .val { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .market-chip .chg { font-size: 10px; margin-top: 1px; }
+  .up { color: var(--red); }
+  .down { color: var(--accent2); }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 16px 20px 10px;
+  }
+
+  .score-card {
+    margin: 0 16px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .score-rank {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    min-width: 20px;
+  }
+  .score-info { flex: 1; }
+  .score-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .score-meta { font-size: 11px; color: var(--text2); }
+  .score-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .quality-score {
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+  }
+  .score-tag {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .tag-high { background: rgba(16,185,129,0.15); color: var(--green); }
+  .tag-med { background: rgba(245,158,11,0.15); color: var(--yellow); }
+
+  .bar-mini {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  /* Bottom Nav */
+  .bottom-nav {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .nav-item {
+    flex: 1;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--text3);
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-icon { font-size: 18px; }
+
+  /* ===== SCREEN 2: 스크리너 ===== */
+  .screener-header {
+    background: var(--bg);
+    padding: 20px 20px 16px;
+  }
+  .screener-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .screener-header p { font-size: 12px; color: var(--text2); }
+
+  .filter-chips {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 16px;
+    overflow-x: auto;
+  }
+  .chip {
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    background: var(--surface2);
+  }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px 10px;
+  }
+  .result-count { font-size: 12px; color: var(--text2); }
+  .result-count strong { color: var(--accent); font-family: 'DM Mono', monospace; }
+  .sort-btn { font-size: 11px; color: var(--accent2); }
+
+  .stock-row {
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .stock-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    font-family: 'DM Mono', monospace;
+  }
+  .stock-info { flex: 1; min-width: 0; }
+  .stock-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .stock-metrics { display: flex; gap: 8px; }
+  .metric-pill {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text2);
+  }
+  .metric-pill strong { color: var(--text); }
+  .stock-right { text-align: right; }
+  .stock-price { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .stock-score-small {
+    font-size: 10px;
+    margin-top: 3px;
+  }
+
+  /* ===== SCREEN 3: 종목 상세 ===== */
+  .detail-header {
+    background: linear-gradient(180deg, #0f172a, var(--surface));
+    padding: 20px 20px 20px;
+  }
+  .back-btn { font-size: 12px; color: var(--text2); margin-bottom: 12px; }
+  .detail-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .detail-sub { font-size: 12px; color: var(--text2); margin-bottom: 14px; }
+  .price-row { display: flex; align-items: baseline; gap: 10px; }
+  .big-price { font-size: 28px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .price-change { font-size: 13px; }
+
+  /* Score Ring */
+  .score-ring-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    background: var(--surface2);
+    margin: 0 16px 14px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }
+  .ring-container {
+    position: relative;
+    width: 70px; height: 70px;
+    flex-shrink: 0;
+  }
+  .ring-container svg { transform: rotate(-90deg); }
+  .ring-number {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+  }
+  .ring-labels { flex: 1; }
+  .ring-label-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .ring-subs { display: flex; flex-direction: column; gap: 4px; }
+  .ring-sub-item { display: flex; justify-content: space-between; font-size: 11px; }
+  .ring-sub-item .label { color: var(--text2); }
+  .ring-sub-item .val { font-family: 'DM Mono', monospace; font-weight: 500; }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 14px;
+  }
+  .metric-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .metric-card .m-label { font-size: 10px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-card .m-value { font-size: 18px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .metric-card .m-context { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .m-value.good { color: var(--green); }
+  .m-value.warn { color: var(--yellow); }
+  .m-value.neutral { color: var(--text); }
+
+  /* Chart placeholder */
+  .chart-section {
+    padding: 0 16px 14px;
+  }
+  .chart-title { font-size: 12px; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 80px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .chart-bar-group { display: flex; gap: 2px; flex: 1; align-items: flex-end; }
+  .chart-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    min-height: 4px;
+  }
+  .bar-roe { background: var(--accent); }
+  .bar-roa { background: var(--accent2); opacity: 0.7; }
+  .chart-year { font-size: 9px; color: var(--text3); text-align: center; margin-top: 4px; }
+
+  /* ===== SCREEN 4: 시야 AI 분석 ===== */
+  .ai-header {
+    background: var(--bg);
+    padding: 20px 20px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ai-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .ai-title { font-size: 18px; font-weight: 700; }
+  .ai-sub { font-size: 11px; color: var(--text2); }
+
+  .ai-chat {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .bubble {
+    max-width: 85%;
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .bubble-user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .bubble-ai {
+    align-self: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+  .bubble-ai .ai-name {
+    font-size: 10px;
+    color: var(--accent2);
+    font-weight: 600;
+    margin-bottom: 5px;
+    letter-spacing: 0.5px;
+  }
+
+  .insight-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 16px 14px;
+  }
+  .insight-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .insight-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .insight-text .title { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+  .insight-text .desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+  .ai-input-area {
+    padding: 10px 16px 14px;
+    display: flex;
+    gap: 8px;
+  }
+  .ai-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .ai-send {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* Scrollable content */
+  .scroll-content {
+    overflow-y: auto;
+    max-height: 580px;
+  }
+  .scroll-content::-webkit-scrollbar { width: 0; }
+
+</style>
+</head>
+<body>
+
+<h1 class="page-title">완성 앱 화면 미리보기</h1>
+<div class="page-subtitle">시야 <span>·</span> 한국 가치투자 분석</div>
+
+<div class="screens-grid">
+
+  <!-- SCREEN 1: 홈 -->
+  <div class="screen-wrapper">
+    <div class="screen-label"><span>01</span>홈 대시보드</div>
+    <div class="phone">
+      <div class="phone-notch"><div class="notch-pill"></div></div>
+      <div class="phone-content scroll-content">
+        <div class="home-header">
+          <div class="home-greeting">안녕하세요 👋</div>
+          <div class="home-title">오늘의 <span>가치주</span> 레이더</div>
+          <div class="market-summary">
+            <div class="market-chip">
+              <div class="name">KOSPI</div>
+              <div class="val up">2,541</div>
+              <div class="chg up">▲ 0.8%</div>
+            </div>
+            <div class="market-chip">
+              <div class="name">KOSDAQ</div>
+              <div class="val down">710</div>
+              <div class="chg down">▼ 0.3%</div>
+            </div>
+            <div class="market-chip">
+              <div class="name">환율</div>
+              <div class="val up">1,382</div>
+              <div class="chg up">▲ 0.2%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">✨ 오늘의 추천 종목</div>
+
+        <div class="score-card">
+          <div class="score-rank">1</div>
+          <div class="score-info">
+            <div class="score-name">삼성전자</div>
+            <div class="score-meta">반도체 · KOSPI · 005930</div>
+            <div class="bar-mini"><div class="bar-fill" style="width:88%"></div></div>
+          </div>
+          <div class="score-badge">
+            <div class="quality-score">88</div>
+            <div class="score-tag tag-high">우량</div>
+          </div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-rank">2</div>
+          <div class="score-info">
+            <div class="score-name">NAVER</div>
+            <div class="score-meta">IT서비스 · KOSPI · 035420</div>
+            <div class="bar-mini"><div class="bar-fill" style="width:82%"></div></div>
+          </div>
+          <div class="score-badge">
+            <div class="quality-score">82</div>
+            <div class="score-tag tag-high">우량</div>
+          </div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-rank">3</div>
+          <div class="score-info">
+            <div class="score-name">기아</div>
+            <div class="score-meta">자동차 · KOSPI · 000270</div>
+            <div class="bar-mini"><div class="bar-fill" style="width:74%"></div></div>
+          </div>
+          <div class="score-badge">
+            <div class="quality-score">74</div>
+            <div class="score-tag tag-med">관심</div>
+          </div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-rank">4</div>
+          <div class="score-info">
+            <div class="score-name">KT&G</div>
+            <div class="score-meta">담배 · KOSPI · 033780</div>
+            <div class="bar-mini"><div class="bar-fill" style="width:71%"></div></div>
+          </div>
+          <div class="score-badge">
+            <div class="quality-score">71</div>
+            <div class="score-tag tag-med">관심</div>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon">⌂</div><div>홈</div></div>
+          <div class="nav-item"><div class="nav-icon">⊞</div><div>스크리너</div></div>
+          <div class="nav-item"><div class="nav-icon">◎</div><div>관심종목</div></div>
+          <div class="nav-item"><div class="nav-icon">◈</div><div>시야AI</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: 스크리너 -->
+  <div class="screen-wrapper">
+    <div class="screen-label"><span>02</span>스크리너</div>
+    <div class="phone">
+      <div class="phone-notch"><div class="notch-pill"></div></div>
+      <div class="phone-content scroll-content">
+        <div class="screener-header">
+          <h2>종목 스크리너</h2>
+          <p>가치/퀄리티 기준으로 필터링</p>
+        </div>
+        <div class="filter-chips">
+          <div class="chip active">전체</div>
+          <div class="chip">저PBR &lt;1</div>
+          <div class="chip">고ROE &gt;15%</div>
+          <div class="chip">저부채</div>
+          <div class="chip">KOSPI</div>
+          <div class="chip">KOSDAQ</div>
+        </div>
+        <div class="result-header">
+          <div class="result-count">필터 결과 <strong>247</strong>개 종목</div>
+          <div class="sort-btn">점수순 ▼</div>
+        </div>
+
+        <div class="stock-row">
+          <div class="stock-icon">삼</div>
+          <div class="stock-info">
+            <div class="stock-name">삼성전자</div>
+            <div class="stock-metrics">
+              <div class="metric-pill">PER <strong>12.4</strong></div>
+              <div class="metric-pill">PBR <strong>1.2</strong></div>
+              <div class="metric-pill">ROE <strong>18.3%</strong></div>
+            </div>
+          </div>
+          <div class="stock-right">
+            <div class="stock-price">61,200</div>
+            <div class="stock-score-small" style="color: var(--accent);">점수 88 ↑</div>
+          </div>
+        </div>
+
+        <div class="stock-row">
+          <div class="stock-icon">기</div>
+          <div class="stock-info">
+            <div class="stock-name">기아</div>
+            <div class="stock-metrics">
+              <div class="metric-pill">PER <strong>4.8</strong></div>
+              <div class="metric-pill">PBR <strong>0.8</strong></div>
+              <div class="metric-pill">ROE <strong>22.1%</strong></div>
+            </div>
+          </div>
+          <div class="stock-right">
+            <div class="stock-price">82,400</div>
+            <div class="stock-score-small" style="color: var(--accent);">점수 74 ↑</div>
+          </div>
+        </div>
+
+        <div class="stock-row">
+          <div class="stock-icon">KT</div>
+          <div class="stock-info">
+            <div class="stock-name">KT&G</div>
+            <div class="stock-metrics">
+              <div class="metric-pill">PER <strong>9.2</strong></div>
+              <div class="metric-pill">PBR <strong>1.1</strong></div>
+              <div class="metric-pill">ROE <strong>14.7%</strong></div>
+            </div>
+          </div>
+          <div class="stock-right">
+            <div class="stock-price">97,600</div>
+            <div class="stock-score-small" style="color: var(--yellow);">점수 71 →</div>
+          </div>
+        </div>
+
+        <div class="stock-row">
+          <div class="stock-icon">현</div>
+          <div class="stock-info">
+            <div class="stock-name">현대차</div>
+            <div class="stock-metrics">
+              <div class="metric-pill">PER <strong>5.3</strong></div>
+              <div class="metric-pill">PBR <strong>0.6</strong></div>
+              <div class="metric-pill">ROE <strong>19.8%</strong></div>
+            </div>
+          </div>
+          <div class="stock-right">
+            <div class="stock-price">185,000</div>
+            <div class="stock-score-small" style="color: var(--yellow);">점수 69 →</div>
+          </div>
+        </div>
+
+        <div class="stock-row">
+          <div class="stock-icon">포</div>
+          <div class="stock-info">
+            <div class="stock-name">POSCO홀딩스</div>
+            <div class="stock-metrics">
+              <div class="metric-pill">PER <strong>7.1</strong></div>
+              <div class="metric-pill">PBR <strong>0.5</strong></div>
+              <div class="metric-pill">ROE <strong>11.2%</strong></div>
+            </div>
+          </div>
+          <div class="stock-right">
+            <div class="stock-price">278,500</div>
+            <div class="stock-score-small" style="color: var(--yellow);">점수 63 ↓</div>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon">⌂</div><div>홈</div></div>
+          <div class="nav-item active"><div class="nav-icon">⊞</div><div>스크리너</div></div>
+          <div class="nav-item"><div class="nav-icon">◎</div><div>관심종목</div></div>
+          <div class="nav-item"><div class="nav-icon">◈</div><div>시야AI</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: 종목 상세 -->
+  <div class="screen-wrapper">
+    <div class="screen-label"><span>03</span>종목 상세 분석</div>
+    <div class="phone">
+      <div class="phone-notch"><div class="notch-pill"></div></div>
+      <div class="phone-content scroll-content">
+        <div class="detail-header">
+          <div class="back-btn">← 스크리너</div>
+          <div class="detail-title">삼성전자</div>
+          <div class="detail-sub">005930 · 반도체 · KOSPI</div>
+          <div class="price-row">
+            <div class="big-price">61,200</div>
+            <div class="price-change up">▲ 800 (+1.3%)</div>
+          </div>
+        </div>
+
+        <!-- Quality Score Ring -->
+        <div class="score-ring-section">
+          <div class="ring-container">
+            <svg width="70" height="70" viewBox="0 0 70 70">
+              <circle cx="35" cy="35" r="28" fill="none" stroke="#1e2d45" stroke-width="6"/>
+              <circle cx="35" cy="35" r="28" fill="none" stroke="#3b82f6" stroke-width="6"
+                stroke-dasharray="175.9" stroke-dashoffset="21.1" stroke-linecap="round"/>
+            </svg>
+            <div class="ring-number">88</div>
+          </div>
+          <div class="ring-labels">
+            <div class="ring-label-title">종합 품질 점수</div>
+            <div class="ring-subs">
+              <div class="ring-sub-item">
+                <span class="label">수익성</span>
+                <span class="val" style="color:var(--green)">92 ★★★★★</span>
+              </div>
+              <div class="ring-sub-item">
+                <span class="label">안정성</span>
+                <span class="val" style="color:var(--accent)">85 ★★★★☆</span>
+              </div>
+              <div class="ring-sub-item">
+                <span class="label">밸류에이션</span>
+                <span class="val" style="color:var(--yellow)">78 ★★★★☆</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="m-label">ROE</div>
+            <div class="m-value good">18.3%</div>
+            <div class="m-context">업종 평균 12.1%</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">PBR</div>
+            <div class="m-value neutral">1.2x</div>
+            <div class="m-context">5년 평균 1.8x</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">부채비율</div>
+            <div class="m-value good">38.2%</div>
+            <div class="m-context">매우 안전</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">배당수익률</div>
+            <div class="m-value warn">2.1%</div>
+            <div class="m-context">DPS 1,440원</div>
+          </div>
+        </div>
+
+        <!-- ROE/ROA Chart -->
+        <div class="chart-section">
+          <div class="chart-title">ROE / ROA 추이 (3년)</div>
+          <div class="chart-bars">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+              <div class="chart-bar-group">
+                <div class="chart-bar bar-roe" style="height:45px"></div>
+                <div class="chart-bar bar-roa" style="height:28px"></div>
+              </div>
+              <div class="chart-year">2022</div>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+              <div class="chart-bar-group">
+                <div class="chart-bar bar-roe" style="height:18px"></div>
+                <div class="chart-bar bar-roa" style="height:10px"></div>
+              </div>
+              <div class="chart-year">2023</div>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+              <div class="chart-bar-group">
+                <div class="chart-bar bar-roe" style="height:52px"></div>
+                <div class="chart-bar bar-roa" style="height:34px"></div>
+              </div>
+              <div class="chart-year">2024</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:14px; padding-top:8px; padding-left:4px;">
+            <div style="display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text2);">
+              <div style="width:10px;height:3px;background:var(--accent);border-radius:2px;"></div>ROE
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text2);">
+              <div style="width:10px;height:3px;background:var(--accent2);border-radius:2px;"></div>ROA
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon">⌂</div><div>홈</div></div>
+          <div class="nav-item active"><div class="nav-icon">⊞</div><div>스크리너</div></div>
+          <div class="nav-item"><div class="nav-icon">◎</div><div>관심종목</div></div>
+          <div class="nav-item"><div class="nav-icon">◈</div><div>시야AI</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: 시야 AI -->
+  <div class="screen-wrapper">
+    <div class="screen-label"><span>04</span>시야 AI 분석</div>
+    <div class="phone">
+      <div class="phone-notch"><div class="notch-pill"></div></div>
+      <div class="phone-content scroll-content">
+        <div class="ai-header">
+          <div class="ai-icon">👁</div>
+          <div>
+            <div class="ai-title">시야</div>
+            <div class="ai-sub">AI 가치투자 분석 · 삼성전자</div>
+          </div>
+        </div>
+
+        <div class="ai-chat">
+          <div class="bubble bubble-user">삼성전자 지금 살 만한가요?</div>
+          <div class="bubble bubble-ai">
+            <div class="ai-name">👁 시야</div>
+            현재 삼성전자는 <strong>PBR 1.2x</strong>로 5년 평균(1.8x) 대비 저평가 구간입니다. ROE 18.3%는 업종 평균을 크게 상회하고, 부채비율 38%로 재무 건전성도 양호합니다.<br><br>
+            단, 반도체 업황 사이클 하강 우려가 있어 <strong>분할 매수</strong>를 권장합니다.
+          </div>
+          <div class="bubble bubble-user">경쟁사와 비교해줘</div>
+          <div class="bubble bubble-ai">
+            <div class="ai-name">👁 시야</div>
+            SK하이닉스와 비교 시, 삼성전자가 <strong>안정성·배당</strong>에서 우위이며, SK하이닉스는 HBM 성장성에서 앞섭니다.
+          </div>
+        </div>
+
+        <div class="insight-cards">
+          <div class="insight-card">
+            <div class="insight-icon">💡</div>
+            <div class="insight-text">
+              <div class="title">핵심 강점</div>
+              <div class="desc">3년 연속 ROE 15% 이상 유지. 메모리·파운드리 이중 사업구조로 리스크 분산.</div>
+            </div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-icon">⚠️</div>
+            <div class="insight-text">
+              <div class="title">주요 리스크</div>
+              <div class="desc">HBM 경쟁 지연, 파운드리 수율 문제로 단기 실적 변동성 존재.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-input-area">
+          <div class="ai-input">시야에게 물어보세요...</div>
+          <div class="ai-send">↑</div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon">⌂</div><div>홈</div></div>
+          <div class="nav-item"><div class="nav-icon">⊞</div><div>스크리너</div></div>
+          <div class="nav-item"><div class="nav-icon">◎</div><div>관심종목</div></div>
+          <div class="nav-item active"><div class="nav-icon">◈</div><div>시야AI</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center; margin-top:48px; color: #2d3f5a; font-size: 12px; letter-spacing: 2px;">
+  시야 · 한국 가치투자의 눈 · PHASE 2 → DB 스키마 설계 준비 완료
+</div>
+
+</body>
+</html>
