@@ -3,7 +3,7 @@
 매일 장 마감 후 GitHub Actions에서 자동 실행
 
 수행 작업:
-  1. 최근 시세 수집 (FinanceDataReader, 최근 5거래일)
+  1. 최근 시세 수집 (pykrx 전종목 일괄, 최근 5거래일)
   2. PER/PBR 재계산 (최신 시세 + 재무제표)
   3. RSI/MACD 재계산 (최근 시세 기반)
 
@@ -16,13 +16,12 @@ import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# .env 로드 (로컬 실행 시)
 _env_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
 if os.path.exists(_env_path):
     load_dotenv(_env_path)
 
-# GitHub Actions에서는 환경변수로 직접 주입
 from supabase import create_client
+from pykrx import stock
 import FinanceDataReader as fdr
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -34,7 +33,6 @@ TODAY_STR = TODAY.strftime('%Y-%m-%d')
 
 
 def get_all_stocks():
-    """전체 종목 리스트"""
     stocks = []
     offset = 0
     while True:
@@ -49,76 +47,73 @@ def get_all_stocks():
 
 
 # ══════════════════════════════════════════════
-# Step 1: 최근 시세 수집
+# Step 1: 최근 시세 수집 (pykrx 전종목 일괄)
 # ══════════════════════════════════════════════
 
 def update_prices():
-    """최근 5거래일 시세 수집 (FinanceDataReader)"""
+    """pykrx get_market_ohlcv로 날짜별 전종목 시세 일괄 수집"""
     print("=" * 60)
     print(f"Step 1: 시세 업데이트 ({TODAY_STR})")
     print("=" * 60)
 
-    stocks = get_all_stocks()
-    start_date = (TODAY - timedelta(days=10)).strftime('%Y-%m-%d')
-    
-    success = 0
-    skip = 0
-    errors = 0
-    total = len(stocks)
+    total_rows = 0
+    days_collected = 0
 
-    for i, s in enumerate(stocks):
-        code = s['stock_code']
+    # 최근 10일 날짜 목록
+    dates = []
+    current = TODAY - timedelta(days=10)
+    while current <= TODAY:
+        dates.append(current.strftime('%Y%m%d'))
+        current += timedelta(days=1)
 
+    for date_str in dates:
         try:
-            df = fdr.DataReader(code, start_date)
+            # 전 종목 OHLCV 한 번에 가져오기
+            df = stock.get_market_ohlcv(date_str, market='ALL')
 
             if df is None or df.empty:
-                skip += 1
                 continue
 
+            trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
             rows = []
-            for date_idx, row in df.iterrows():
-                trade_date = date_idx.strftime('%Y-%m-%d')
-                close_val = int(row['Close']) if row['Close'] > 0 else None
+
+            for ticker, row in df.iterrows():
+                close_val = int(row['종가']) if row['종가'] > 0 else None
                 if not close_val:
                     continue
 
-                # 등락률 계산
-                change_pct = None
-                if 'Change' in df.columns and row['Change'] is not None:
-                    change_pct = round(float(row['Change']) * 100, 4)
+                change_pct = round(float(row['등락률']), 4) if '등락률' in df.columns else None
 
                 rows.append({
-                    'stock_code': code,
+                    'stock_code': ticker,
                     'trade_date': trade_date,
-                    'open': int(row['Open']) if row['Open'] > 0 else None,
-                    'high': int(row['High']) if row['High'] > 0 else None,
-                    'low': int(row['Low']) if row['Low'] > 0 else None,
+                    'open': int(row['시가']) if row['시가'] > 0 else None,
+                    'high': int(row['고가']) if row['고가'] > 0 else None,
+                    'low': int(row['저가']) if row['저가'] > 0 else None,
                     'close': close_val,
-                    'volume': int(row['Volume']) if 'Volume' in df.columns else None,
+                    'volume': int(row['거래량']),
                     'change_pct': change_pct,
-                    'source': 'fdr'
+                    'source': 'pykrx'
                 })
 
             if rows:
-                supabase.table('price_daily').upsert(
-                    rows, on_conflict='stock_code,trade_date'
-                ).execute()
-                success += 1
-            else:
-                skip += 1
+                for j in range(0, len(rows), 200):
+                    batch = rows[j:j + 200]
+                    supabase.table('price_daily').upsert(
+                        batch, on_conflict='stock_code,trade_date'
+                    ).execute()
+                total_rows += len(rows)
+                days_collected += 1
+                print(f"  {trade_date}: {len(rows)}개 종목")
 
-        except Exception as e:
-            if errors < 3:
-                print(f"  ❌ {s['stock_name']}({code}): {e}")
-            errors += 1
-
-        if (i + 1) % 200 == 0:
-            print(f"  ⏳ {i+1}/{total} (성공:{success} 건너뜀:{skip})")
             time.sleep(1)
 
-    print(f"✅ 시세 완료: 성공 {success} / 건너뜀 {skip} / 오류 {errors}\n")
-    return success
+        except Exception as e:
+            print(f"  ⚠️ {date_str} 오류: {e}")
+            continue
+
+    print(f"✅ 시세 완료: {days_collected}일, {total_rows}건\n")
+    return total_rows
 
 
 # ══════════════════════════════════════════════
@@ -126,14 +121,12 @@ def update_prices():
 # ══════════════════════════════════════════════
 
 def update_valuation():
-    """최신 시세 기반 PER/PBR 재계산"""
     print("=" * 60)
     print(f"Step 2: PER/PBR 재계산 ({TODAY_STR})")
     print("=" * 60)
 
     stocks = get_all_stocks()
 
-    # 발행주식수 가져오기 (FDR)
     shares_map = {}
     for market in ['KOSPI', 'KOSDAQ']:
         try:
@@ -148,7 +141,6 @@ def update_valuation():
 
     print(f"  발행주식수: {len(shares_map)}개 종목")
 
-    # 최신 재무 데이터 가져오기
     fin_map = {}
     offset = 0
     while True:
@@ -173,13 +165,12 @@ def update_valuation():
         if not shares or not fin:
             continue
 
-        net_income = fin.get('net_income')  # 백만원
-        total_equity = fin.get('total_equity')  # 백만원
+        net_income = fin.get('net_income')
+        total_equity = fin.get('total_equity')
 
         if not net_income or not total_equity:
             continue
 
-        # 최신 종가 가져오기
         price_res = supabase.table('price_daily').select('close, trade_date').eq(
             'stock_code', code
         ).order('trade_date', desc=True).limit(1).execute()
@@ -190,14 +181,12 @@ def update_valuation():
         close = price_res.data[0]['close']
         trade_date = price_res.data[0]['trade_date']
 
-        # EPS, BPS 계산 (백만원 → 원)
         eps = (net_income * 1_000_000) / shares
         bps = (total_equity * 1_000_000) / shares
 
         per = round(close / eps, 2) if eps != 0 else None
         pbr = round(close / bps, 2) if bps != 0 else None
 
-        # 음수 PER은 적자 → 0으로 표시
         if per is not None and per < 0:
             per = 0
 
@@ -212,7 +201,6 @@ def update_valuation():
         })
         success += 1
 
-    # 배치 저장
     if rows:
         for j in range(0, len(rows), 200):
             batch = rows[j:j + 200]
@@ -264,7 +252,6 @@ def calculate_macd(closes, fast=12, slow=26, signal=9):
 
 
 def update_technical():
-    """RSI/MACD 재계산"""
     print("=" * 60)
     print(f"Step 3: RSI/MACD 재계산 ({TODAY_STR})")
     print("=" * 60)
