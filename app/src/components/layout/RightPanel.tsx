@@ -89,14 +89,19 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
               {stock.stock_code} · {stock.market} · {stock.sector || '-'}
             </div>
             {price && (
-              <div className="detail-price-row">
-                <span className="detail-price">{price.close.toLocaleString()}원</span>
-                {price.change_pct !== null && (
-                  <span className={`detail-change ${price.change_pct >= 0 ? 'change-up' : 'change-down'}`}>
-                    {price.change_pct >= 0 ? '+' : ''}{price.change_pct.toFixed(2)}%
-                  </span>
-                )}
-              </div>
+              <>
+                <div className="detail-price-row">
+                  <span className="detail-price">{price.close.toLocaleString()}원</span>
+                  {price.change_pct !== null && (
+                    <span className={`detail-change ${price.change_pct >= 0 ? 'change-up' : 'change-down'}`}>
+                      {price.change_pct >= 0 ? '+' : ''}{price.change_pct.toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+                <div className="detail-data-date">
+                  {formatTradeDate(price.trade_date)} 기준
+                </div>
+              </>
             )}
           </div>
 
@@ -404,6 +409,15 @@ function getMetricColor(
 }
 
 // ── RSI/MACD 헬퍼 ──
+
+function formatTradeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const weekday = weekdays[date.getDay()];
+  return `${month}월 ${day}일(${weekday})`;
+}
 
 function getRsiColor(rsi: number | null): string {
   if (rsi === null) return '';

@@ -161,12 +161,10 @@
 - [x] 3단 패널 비율 조정 + 폰트 키우기 — 좌측 340px, 우측 420px, 기본 15px, 테마명 16px, 테이블 14px
 
 ### 진행 예정 (미루둔 작업)
-- [ ] 일별 시세 업데이트 — 4월 1일 이후 시세 미반영 (collect_prices → collect_valuation → collect_technical)
-- [ ] pykrx API 복구 확인 → 기관/외국인 수급 + 배당 데이터 수집
-- [ ] Claude API 크레딧 충전 → 시야 AI 테스트
-- [ ] 데이터 자동 수집 설정 (GitHub Actions)
-- [ ] 시야 AI Edge Function 전환 (배포 준비)
-- [ ] 배포
+- [ ] pykrx API 복구 확인 → 기관/외국인 수급 + 배당 데이터 수집 (4/8 확인: 여전히 고장)
+- [ ] 한국투자증권 오픈API 연동 — 실시간 시세 + 수급 데이터 해결 (계좌 개설 필요)
+- [ ] 웹 배포 (Vercel) — 1차 배포
+- [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 
 ---
 
@@ -310,6 +308,24 @@
   - 전 종목 2023~2025 3개년 통일 (2023: 2,427 / 2024: 2,560 / 2025: 2,591)
   - `collect_financials.py` YEARS도 [2025, 2024, 2023]으로 변경
 - **데이터 자동 수집 계획 수립**: GitHub Actions로 매일 장 마감 후 자동 실행 (UI 마무리 → 자동화 → 배포 순서)
+
+### 2026-04-08: 배포 준비 — Edge Function + GitHub Actions + 데이터 날짜 표시
+- **Claude API 크레딧 충전**: console.anthropic.com에서 $5 결제 → 시야 AI 정상 작동 확인
+- **시야 AI → Supabase Edge Function 전환 완료**:
+  - `supabase/functions/siya-ai/index.ts` 생성 (Claude API 프록시)
+  - `app/src/lib/ai.ts` 수정: 직접 호출 → `supabase.functions.invoke('siya-ai')` 전환
+  - API 키가 서버에서만 관리됨 → 클라이언트 노출 없음
+  - `supabase secrets set ANTHROPIC_API_KEY=...` 등록, `--no-verify-jwt`로 배포
+- **데이터 자동 수집 (GitHub Actions) 완료**:
+  - `daily_update.py`: pykrx 전종목 일괄 수집 → 10분만에 완료 (FDR 개별 호출 1시간+ → pykrx 날짜별 일괄로 최적화)
+  - `.github/workflows/daily-update.yml`: 매일 KST 16:30 자동 실행 (월~금)
+  - GitHub Secrets 3개 등록 (SUPABASE_URL, SUPABASE_SERVICE_KEY, DART_API_KEY)
+  - GitHub 리포지토리: https://github.com/movieisover/siya (Private)
+- **헤더 시세 기준일 표시**: "4월 8일 종가 기준" 배지 추가, 5분마다 자동 갱신
+- **종목 상세 데이터 날짜 표시**: 가격 아래에 "4월 8일(화) 기준" 표시 (실시간 대비용)
+- **pykrx 복구 확인**: 여전히 고장 (get_market_fundamental, get_market_trading_value_by_date 등)
+- **배포 계획 수립**: 웹 배포(Vercel) 1차 → 1~2주 사용 → PC 앱(Tauri exe) 2차
+- **한국투자증권 오픈API 검토**: 실시간 시세 + 수급 데이터 + 배당 동시 해결 가능, 계좌 개설 필요
 
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:

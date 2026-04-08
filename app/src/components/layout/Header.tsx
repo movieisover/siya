@@ -11,6 +11,13 @@ interface HeaderProps {
   onHelpOpen: () => void;
 }
 
+function formatDataDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${month}월 ${day}일 종가 기준`;
+}
+
 interface SearchResult {
   stock_code: string;
   stock_name: string;
@@ -23,8 +30,30 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
+  const [dataDate, setDataDate] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 시세 데이터 기준일 조회
+  useEffect(() => {
+    async function fetchLatestDate() {
+      try {
+        const { data } = await supabase
+          .from('price_daily')
+          .select('trade_date')
+          .order('trade_date', { ascending: false })
+          .limit(1)
+          .single();
+        if (data) {
+          setDataDate(data.trade_date);
+        }
+      } catch {}
+    }
+    fetchLatestDate();
+    // 5분마다 갱신 (업데이트 중 반영용)
+    const interval = setInterval(fetchLatestDate, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 검색 실행 (디바운스 300ms)
   useEffect(() => {
@@ -113,6 +142,11 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
   return (
     <header className="header">
       <span className="header-logo">시야</span>
+      {dataDate && (
+        <span className="data-date-badge">
+          {formatDataDate(dataDate)}
+        </span>
+      )}
 
       <div className="mode-tabs">
         <button

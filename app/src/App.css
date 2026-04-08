@@ -74,6 +74,16 @@
   margin-right: 8px;
 }
 
+.data-date-badge {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
 .header-user {
   display: flex;
   align-items: center;
@@ -445,6 +455,12 @@
 .detail-change {
   font-size: 15px;
   font-weight: 600;
+}
+
+.detail-data-date {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
 }
 
 /* 섹션 */
