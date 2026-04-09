@@ -1,0 +1,35 @@
+name: 시야 공시 수집
+
+on:
+  schedule:
+    # 장중 KST 09:00~18:00, 1시간 간격 (UTC 00:00~09:00)
+    - cron: '0 0-9 * * 1-5'  # 월~금, 매시 정각
+  workflow_dispatch:  # 수동 실행
+
+jobs:
+  collect-disclosures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 패키지 설치
+        run: |
+          pip install opendartreader python-dotenv supabase pandas
+
+      - name: 공시 수집 실행
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          cd src/data/collectors
+          python collect_disclosures.py

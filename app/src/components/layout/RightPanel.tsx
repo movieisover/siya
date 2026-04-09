@@ -5,6 +5,7 @@ import type { Financials, StockScore } from '../../types/stock';
 import type { AppMode } from '../../App';
 import type { StockDetailData } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
+import DisclosureTab from '../stock-detail/DisclosureTab';
 
 interface RightPanelProps {
   stockCode: string | null;
@@ -18,7 +19,7 @@ interface RightPanelProps {
 
 export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate }: RightPanelProps) {
   const { data, loading } = useStockDetail(stockCode, mode, selectedThemeId);
-  const [activeTab, setActiveTab] = useState<'detail' | 'ai'>('detail');
+  const [activeTab, setActiveTab] = useState<'detail' | 'ai' | 'disclosure'>('detail');
   const [memoInput, setMemoInput] = useState('');
   const [memoEditing, setMemoEditing] = useState(false);
 
@@ -31,10 +32,10 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
   if (!stockCode) {
     return (
       <aside className="panel right-panel">
-        <div className="empty-state">
-          <div className="empty-state-icon">📋</div>
-          <div>종목을 선택하세요</div>
+        <div className="detail-tabs">
+          <button className="detail-tab active" onClick={() => {}}>공시사항</button>
         </div>
+        <DisclosureTab />
       </aside>
     );
   }
@@ -68,6 +69,12 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
           onClick={() => setActiveTab('ai')}
         >
           시야 AI
+        </button>
+        <button
+          className={`detail-tab ${activeTab === 'disclosure' ? 'active' : ''}`}
+          onClick={() => setActiveTab('disclosure')}
+        >
+          공시사항
         </button>
       </div>
 
@@ -311,8 +318,10 @@ KRX 공식 업종 분류 기준 (테마와는 별개)
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'ai' ? (
         <AiTab stockDetail={data} stockName={stock.stock_name} />
+      ) : (
+        <DisclosureTab />
       )}
     </aside>
   );

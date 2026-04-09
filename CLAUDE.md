@@ -101,7 +101,7 @@
 | 팀 리뷰 | ✅ 완료 | 기획서 v4 검토 완료, 개발 진행 확정 |
 
 ### Phase 2: 데이터 모델 설계 ✅ 완료
-- [x] DB 스키마 설계 (10개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist)
+- [x] DB 스키마 설계 (11개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist, disclosures)
 - [x] 테마-종목 매핑 방식 확정 (반자동: 업종코드 1차 분류 → 수동 검수) → 실제 매핑 작업은 Phase 3 초반에 실행
 - [x] 데이터 수집 파이프라인 설계 (서버에서 수집 + 일일 자동 갱신)
 - [x] 업데이트 주기 및 방식 결정 (앱 실행 시 자동 + 수동 버튼)
@@ -133,7 +133,7 @@
 - anon key: 설정 완료 (`.env`에 저장 필요)
 
 - [x] Supabase 프로젝트 생성
-- [x] DB 테이블 생성 (schema.sql 실행) — 10개 테이블 + RLS + 인덱스 + 트리거 완료
+- [x] DB 테이블 생성 (schema.sql 실행) — 11개 테이블 + RLS + 인덱스 + 트리거 완료
 - [x] 테마 20개 등록 (insert_themes.sql)
 - [x] 종목 마스터 수집 (KOSPI 950 + KOSDAQ 1,823 = 2,773개)
 - [x] 종목-테마 매핑 (20개 테마 × 테마당 5~15개 핵심 종목, 수동 매핑)
@@ -143,6 +143,7 @@
   - [x] 밸류에이션 (valuation) — PER/PBR 자체 계산 2,454개 종목 (시세+재무+발행주식수)
   - [ ] 기관/외국인 수급 (investor_trading) — pykrx API 복구 후 수집 필요 (⬇️ TODO 참고)
   - [x] 기술지표 (technical) — RSI/MACD 자체 계산 2,674개 종목
+  - [x] 공시목록 (disclosures) — DART API, 1시간 간격 수집 (GitHub Actions)
 - [x] Tauri + React 프로젝트 셋업 — `app/` 하위에 생성 완료
 - [x] 로그인 화면 (Supabase Auth) — 이메일/비밀번호 가입+로그인, 이메일 인증 OFF
 - [x] 3단 레이아웃 기본 구조 (Header, LeftPanel, CenterPanel, RightPanel)
@@ -161,10 +162,12 @@
 - [x] 3단 패널 비율 조정 + 폰트 키우기 — 좌측 340px, 우측 420px, 기본 15px, 테마명 16px, 테이블 14px
 
 ### 진행 예정 (미루둔 작업)
-- [ ] pykrx API 복구 확인 → 기관/외국인 수급 + 배당 데이터 수집 (4/8 확인: 여전히 고장)
-- [ ] 한국투자증권 오픈API 연동 — 실시간 시세 + 수급 데이터 해결 (계좌 개설 필요)
-- [ ] 웹 배포 (Vercel) — 1차 배포
+- [ ] 한국투자증권 오픈API 연동 — 실시간 시세 + 수급 데이터 + 배당 해결 (계좌 개설 필요)
+- [ ] pykrx API 복구 확인 (4/8 확인: 여전히 고장) — 한투 API로 대체 검토 중
+- [ ] Vercel 커스텀 도메인 연결 (필요 시)
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
+- [ ] 사용자 피드백 반영
+- [ ] app/.env에서 VITE_ANTHROPIC_API_KEY 줄 삭제 (더 이상 필요 없음)
 
 ---
 
@@ -326,6 +329,8 @@
 - **pykrx 복구 확인**: 여전히 고장 (get_market_fundamental, get_market_trading_value_by_date 등)
 - **배포 계획 수립**: 웹 배포(Vercel) 1차 → 1~2주 사용 → PC 앱(Tauri exe) 2차
 - **한국투자증권 오픈API 검토**: 실시간 시세 + 수급 데이터 + 배당 동시 해결 가능, 계좌 개설 필요
+- **Vercel 웹 배포 완료**: https://siya-movieisovers-projects.vercel.app (확인 필요)
+- **시야 AI 강화**: 웹 검색 도구 추가 + 시스템 프롬프트 확장 (DB데이터만 → DB+일반지식+웹검색)
 
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:
