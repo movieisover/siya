@@ -94,7 +94,7 @@ export function useThemeAnalysis(themeIds: number[]) {
           totalNetBuy += trading.totalNetBuy;
         }
       }
-      const netBuyBillion = totalNetBuy / 100_000_000; // 원 → 억원
+      const netBuyBillion = totalNetBuy / 100; // 백만원 → 억원
 
       // 동반상승 비율
       let risingCount = 0;
