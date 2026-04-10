@@ -16,7 +16,10 @@
       "Read(//c/ProgramData/anaconda3/envs/siya/**)",
       "Bash(PYTHONIOENCODING=utf-8 /c/Users/easte/.conda/envs/siya/python.exe:*)",
       "Bash(npm install:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }
