@@ -12,6 +12,11 @@ export interface ChartCandle {
 
 export type ChartPeriod = '1M' | '3M' | '6M' | '1Y' | '3Y';
 
+export interface RealtimePriceData {
+  price: number;
+  volume: number;
+}
+
 function getStartDate(period: ChartPeriod): string {
   const d = new Date();
   switch (period) {
@@ -24,7 +29,13 @@ function getStartDate(period: ChartPeriod): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function useChartData(stockCode: string | null, period: ChartPeriod) {
+function getTodayKST(): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
+export function useChartData(stockCode: string | null, period: ChartPeriod, realtimePrice?: RealtimePriceData | null) {
   const [data, setData] = useState<ChartCandle[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -36,7 +47,7 @@ export function useChartData(stockCode: string | null, period: ChartPeriod) {
 
     const startDate = getStartDate(period);
 
-    async function fetch() {
+    async function fetchData() {
       const all: ChartCandle[] = [];
       let offset = 0;
       const pageSize = 1000;
@@ -75,9 +86,42 @@ export function useChartData(stockCode: string | null, period: ChartPeriod) {
       }
     }
 
-    fetch();
+    fetchData();
     return () => { cancelled = true; };
   }, [stockCode, period]);
 
-  return { data, loading };
+  // 실시간가 반영: 마지막 봉 업데이트
+  const finalData = applyRealtimePrice(data, realtimePrice);
+
+  return { data: finalData, loading };
+}
+
+function applyRealtimePrice(data: ChartCandle[], realtimePrice?: RealtimePriceData | null): ChartCandle[] {
+  if (!realtimePrice || data.length === 0) return data;
+
+  const today = getTodayKST();
+  const last = data[data.length - 1];
+
+  if (last.time === today) {
+    // 오늘 봉이 있으면 close/high/low/volume 업데이트
+    const updated = [...data];
+    updated[updated.length - 1] = {
+      ...last,
+      close: realtimePrice.price,
+      high: Math.max(last.high, realtimePrice.price),
+      low: Math.min(last.low, realtimePrice.price),
+      volume: realtimePrice.volume,
+    };
+    return updated;
+  } else {
+    // 오늘 봉이 없으면 추가
+    return [...data, {
+      time: today,
+      open: realtimePrice.price,
+      high: realtimePrice.price,
+      low: realtimePrice.price,
+      close: realtimePrice.price,
+      volume: realtimePrice.volume,
+    }];
+  }
 }

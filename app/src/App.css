@@ -1593,6 +1593,21 @@
   text-align: center;
 }
 
+/* ── 실시간 배지 ── */
+
+.realtime-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-green);
+  border-radius: 3px;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
 /* ── 캔들차트 ── */
 
 .candle-chart-wrapper {

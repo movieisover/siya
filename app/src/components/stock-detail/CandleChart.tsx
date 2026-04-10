@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, ColorType } from 'lightweight-charts';
-import { useChartData, type ChartPeriod } from '../../hooks/useChartData';
+import { useChartData, type ChartPeriod, type RealtimePriceData } from '../../hooks/useChartData';
 
 const PERIODS: { label: string; value: ChartPeriod }[] = [
   { label: '1개월', value: '1M' },
@@ -13,21 +13,23 @@ const PERIODS: { label: string; value: ChartPeriod }[] = [
 interface CandleChartProps {
   stockCode: string;
   height?: number;
+  realtimePrice?: RealtimePriceData | null;
 }
 
-function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand, onExpand }: {
+function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand, onExpand, realtimePrice }: {
   stockCode: string;
   height: number;
   period: ChartPeriod;
   onPeriodChange: (p: ChartPeriod) => void;
   showExpand?: boolean;
   onExpand?: () => void;
+  realtimePrice?: RealtimePriceData | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const { data, loading } = useChartData(stockCode, period);
+  const { data, loading } = useChartData(stockCode, period, realtimePrice);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -131,7 +133,7 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
   );
 }
 
-export default function CandleChart({ stockCode, height = 300 }: CandleChartProps) {
+export default function CandleChart({ stockCode, height = 300, realtimePrice }: CandleChartProps) {
   const [period, setPeriod] = useState<ChartPeriod>('3M');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState<ChartPeriod>('3M');
@@ -150,6 +152,7 @@ export default function CandleChart({ stockCode, height = 300 }: CandleChartProp
         onPeriodChange={setPeriod}
         showExpand
         onExpand={openModal}
+        realtimePrice={realtimePrice}
       />
 
       {modalOpen && (
@@ -161,6 +164,7 @@ export default function CandleChart({ stockCode, height = 300 }: CandleChartProp
               height={Math.round(window.innerHeight * 0.65)}
               period={modalPeriod}
               onPeriodChange={setModalPeriod}
+              realtimePrice={realtimePrice}
             />
           </div>
         </div>
