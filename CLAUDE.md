@@ -62,11 +62,12 @@
 | 소스 | 데이터 | 용도 |
 |------|--------|------|
 | FinanceDataReader | 종목 리스트, 주가 | 기본 데이터 |
-| pykrx | PER, PBR, 배당, 거래량, **기관/외국인 수급** | 밸류에이션 + 테마 시그널 |
+| pykrx | PER, PBR, 배당, 거래량 | 밸류에이션 + 시세 |
+| 한국투자증권 오픈API | **기관/외국인 수급**, 일봉 시세 | 수급 시그널 + 캔들차트 |
 | OpenDartReader | 재무제표 (매출, 이익, 부채) | 재무 분석 |
 | TradingView-Screener | RSI, MACD 등 기술지표 | 테마 타이밍 지표 (진입 시점 판단) |
 
-> **pykrx 기관/외국인 데이터**: `stock.get_market_trading_value_by_investor()` 함수로 무료 제공 확인됨
+> **한투 API**: Base URL `https://openapi.koreainvestment.com:9443`, 토큰 24시간 유효, 초당 3건 제한
 
 ---
 
@@ -141,7 +142,7 @@
   - [x] 일별 시세 (price_daily) — 2,783개 종목 3년치
   - [x] 재무제표 (financials) — 2,328개 종목 3개년(2022~2024)
   - [x] 밸류에이션 (valuation) — PER/PBR 자체 계산 2,454개 종목 (시세+재무+발행주식수)
-  - [ ] 기관/외국인 수급 (investor_trading) — pykrx API 복구 후 수집 필요 (⬇️ TODO 참고)
+  - [x] 기관/외국인 수급 (investor_trading) — 한국투자증권(KIS) API로 수집 완료
   - [x] 기술지표 (technical) — RSI/MACD 자체 계산 2,674개 종목
   - [x] 공시목록 (disclosures) — DART API, 1시간 간격 수집 (GitHub Actions)
 - [x] Tauri + React 프로젝트 셋업 — `app/` 하위에 생성 완료
@@ -162,8 +163,8 @@
 - [x] 3단 패널 비율 조정 + 폰트 키우기 — 좌측 340px, 우측 420px, 기본 15px, 테마명 16px, 테이블 14px
 
 ### 진행 예정 (미루둔 작업)
-- [ ] 한국투자증권 오픈API 연동 — 실시간 시세 + 수급 데이터 + 배당 해결 (계좌 개설 필요)
-- [ ] pykrx API 복구 확인 (4/8 확인: 여전히 고장) — 한투 API로 대체 검토 중
+- [x] 한국투자증권 오픈API 연동 — 수급 수집 + 캔들차트 완료 (2026-04-10)
+- [ ] 한투 API 확장 — 실시간 시세, 배당 데이터 등 추가 연동 검토
 - [ ] Vercel 커스텀 도메인 연결 (필요 시)
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 - [ ] 사용자 피드백 반영
@@ -332,6 +333,20 @@
 - **Vercel 웹 배포 완료**: https://siya-movieisovers-projects.vercel.app (확인 필요)
 - **시야 AI 강화**: 웹 검색 도구 추가 + 시스템 프롬프트 확장 (DB데이터만 → DB+일반지식+웹검색)
 
+### 2026-04-10: 한국투자증권(KIS) 오픈API 연동 + 캔들차트
+- **KIS API 유틸리티**: `src/data/collectors/kis_api.py` — 토큰 발급/캐싱(24h), 공통 GET 함수, 초당 3건 제한(0.4s sleep)
+- **수급 수집 스크립트**: `src/data/collectors/collect_investor_kis.py` — 전 종목 투자자별 매매동향 → investor_trading 테이블 upsert
+  - 옵션: `--date YYYYMMDD` (특정일), `--days N` (최근 N일)
+  - source = 'kis_api'
+- **daily_update.py Step 4 추가**: update_investor() — KIS API로 전 종목 수급 자동 수집
+- **GitHub Actions 업데이트**: KIS_APP_KEY, KIS_APP_SECRET 환경변수 추가, requests 패키지 추가
+- **캔들차트 추가**: 종목 상세 우측 패널에 일봉 캔들스틱 + 거래량 바 차트
+  - `app/src/hooks/useChartData.ts`: Supabase price_daily에서 기간별 OHLCV 조회
+  - `app/src/components/stock-detail/CandleChart.tsx`: lightweight-charts v5, 기간 선택(1M/3M/6M/1Y/3Y)
+  - 상승=빨강(#ef4444), 하락=파랑(#3b82f6) — 한국 주식 색상
+- **환경변수**: `.env`에 `KIS_APP_KEY`, `KIS_APP_SECRET` 추가 필요
+- **GitHub Secrets**: `KIS_APP_KEY`, `KIS_APP_SECRET` 등록 필요
+
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:
   - `hooks/useWatchlist.ts`: watchlist 테이블 CRUD (추가/삭제/메모수정/관심여부확인/메모조회)
@@ -445,7 +460,7 @@ stock-analyzer/
 ├── README.md              # 프로젝트 소개
 ├── requirements.txt       # Python 의존성
 ├── .gitignore
-├── .env                   # 환경변수 (DART API 키, Supabase 키)
+├── .env                   # 환경변수 (DART API 키, Supabase 키, KIS API 키)
 ├── app/                   # Tauri + React PC 앱
 │   ├── .env               # Supabase 키 + Claude API 키 (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_ANTHROPIC_API_KEY)
 │   ├── package.json
@@ -460,11 +475,13 @@ stock-analyzer/
 │   │   │   ├── useThemeData.ts      # 테마 신뢰도/타이밍/종목 리스트 fetch 훅
 │   │   │   ├── useScreenerStocks.ts # 스크리너 필터 적용 + 종합점수 계산 훅
 │   │   │   ├── useStockDetail.ts    # 종목 상세 + 업종 평균 fetch 훅
+│   │   │   ├── useChartData.ts      # 캔들차트 OHLCV 데이터 fetch 훅
 │   │   │   ├── useWatchlist.ts      # 관심종목 CRUD 훅
 │   │   │   └── useWatchlistStocks.ts # 관심종목 종목 데이터 fetch 훅
 │   │   ├── components/
 │   │   │   ├── auth/      # AuthProvider, LoginPage
 │   │   │   ├── layout/    # Header, LeftPanel, CenterPanel, RightPanel
+│   │   │   ├── stock-detail/ # CandleChart, DisclosureTab
 │   │   │   └── common/    # Tooltip, HelpPage
 │   └── src-tauri/         # Tauri (Rust) 설정
 │       ├── tauri.conf.json
@@ -477,7 +494,7 @@ stock-analyzer/
 ├── src/
 │   ├── core/              # 핵심 로직
 │   └── data/
-│       └── collectors/    # 데이터 수집 모듈 (Python) — update_sector.py 포함
+│       └── collectors/    # 데이터 수집 모듈 (Python) — kis_api.py, collect_investor_kis.py, daily_update.py 등
 ├── scripts/
 │   └── exploration/       # 탐색용 스크립트
 └── tests/                 # 테스트
@@ -489,14 +506,13 @@ stock-analyzer/
 
 ### pykrx API 복구 확인 (정기적으로 체크 필요)
 - **상태**: 2026-04-01 기준 `get_market_fundamental`, `get_market_trading_value_by_date` 등 고장
-- **영향**: 밸류에이션(PER/PBR), 기관/외국인 수급 수집 불가
-- **확인 방법**: `python scripts/test_valuation.py` 또는 `python scripts/test_investor.py` 실행
+- **영향**: 밸류에이션(PER/PBR) 수집 불가 (시세는 `get_market_ohlcv`로 정상)
+- **수급 데이터**: ✅ 한국투자증권(KIS) API로 대체 완료 (`collect_investor_kis.py`)
+- **확인 방법**: `python scripts/test_valuation.py` 실행
 - **GitHub 이슈 확인**: https://github.com/sharebook-kr/pykrx/issues
 - **복구 시 실행할 것**:
   1. `pip install --upgrade pykrx` (패키지 업데이트)
   2. `python src/data/collectors/collect_valuation.py` (밸류에이션 수집)
-  3. `python src/data/collectors/collect_investor.py` (기관/외국인 수급 수집)
-- **대안**: 한국투자증권 오픈API로 대체 가능 (계좌 필요)
 
 ### Claude API 크레딧 충전 필요
 - **상태**: API 키 발급 및 `app/.env` 입력 완료 (2026-04-07)
@@ -514,7 +530,7 @@ stock-analyzer/
 - **방법**: GitHub Actions (기존 Python 스크립트 재활용, 무료)
 - **스케줄**: 매일 장 마감 후 (KST 16:30 = UTC 07:30)
 - **수집 항목**:
-  - 매일: 일별 시세, PER/PBR(자체계산), RSI/MACD(자체계산), 기관/외국인 수급(pykrx 복구 후)
+  - 매일: 일별 시세, PER/PBR(자체계산), RSI/MACD(자체계산), 기관/외국인 수급(KIS API)
   - 월 1회: 종목 마스터 (신규 상장/상폐 반영)
   - 연 1회: 재무제표 (4~5월 사업보고서 공시 후)
 - **순서**: UI 마무리 → 자동화 설정 → 배포

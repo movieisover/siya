@@ -10,7 +10,13 @@
       "Bash(node -e \"const pkg = require\\('./node_modules/@supabase/supabase-js/package.json'\\); console.log\\(pkg.version\\)\")",
       "Bash(npx vite:*)",
       "Bash(npm run:*)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(conda run:*)",
+      "Read(//c/Users/easte/.conda/envs/siya/**)",
+      "Read(//c/ProgramData/anaconda3/envs/siya/**)",
+      "Bash(PYTHONIOENCODING=utf-8 /c/Users/easte/.conda/envs/siya/python.exe:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)"
     ]
   }
 }

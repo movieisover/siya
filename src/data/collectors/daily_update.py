@@ -6,6 +6,7 @@
   1. 최근 시세 수집 (pykrx 전종목 일괄, 최근 5거래일)
   2. PER/PBR 재계산 (최신 시세 + 재무제표)
   3. RSI/MACD 재계산 (최근 시세 기반)
+  4. 기관/외국인 수급 수집 (한국투자증권 API)
 
 실행: python src/data/collectors/daily_update.py
 """
@@ -23,6 +24,7 @@ if os.path.exists(_env_path):
 from supabase import create_client
 from pykrx import stock
 import FinanceDataReader as fdr
+from kis_api import kis_get
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
@@ -310,6 +312,85 @@ def update_technical():
 
 
 # ══════════════════════════════════════════════
+# Step 4: 기관/외국인 수급 수집 (KIS API)
+# ══════════════════════════════════════════════
+
+def update_investor():
+    """KIS API로 전 종목 투자자별 매매동향 수집"""
+    print("=" * 60)
+    print(f"Step 4: 기관/외국인 수급 수집 - KIS API ({TODAY_STR})")
+    print("=" * 60)
+
+    stocks = get_all_stocks()
+    total = len(stocks)
+    success = 0
+    skip = 0
+    errors = 0
+    all_rows = []
+
+    for i, s in enumerate(stocks):
+        code = s['stock_code']
+        name = s['stock_name']
+
+        try:
+            data = kis_get(
+                '/uapi/domestic-stock/v1/quotations/inquire-investor',
+                'FHKST01010900',
+                {'FID_COND_MRKT_DIV_CODE': 'J', 'FID_INPUT_ISCD': code}
+            )
+
+            if not data:
+                skip += 1
+                continue
+
+            items = data.get('output', [])
+            for item in items:
+                date_str = item.get('stck_bsop_date', '')
+                frgn_val = item.get('frgn_ntby_tr_pbmn', '').strip()
+                orgn_val = item.get('orgn_ntby_tr_pbmn', '').strip()
+                if not date_str or (not frgn_val and not orgn_val):
+                    continue
+
+                trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                all_rows.append({
+                    'stock_code': code,
+                    'trade_date': trade_date,
+                    'inst_net_buy': int(orgn_val) if orgn_val else 0,
+                    'foreign_net_buy': int(frgn_val) if frgn_val else 0,
+                    'source': 'kis_api',
+                })
+
+            success += 1
+
+        except Exception as e:
+            if errors < 5:
+                print(f"  ❌ {name}({code}): {e}")
+            errors += 1
+
+        # 1000행마다 배치 저장
+        if len(all_rows) >= 1000:
+            for j in range(0, len(all_rows), 200):
+                batch = all_rows[j:j + 200]
+                supabase.table('investor_trading').upsert(
+                    batch, on_conflict='stock_code,trade_date'
+                ).execute()
+            all_rows = []
+
+        if (i + 1) % 500 == 0:
+            print(f"  ⏳ {i+1}/{total} ({success} 성공)")
+
+    # 잔여 저장
+    if all_rows:
+        for j in range(0, len(all_rows), 200):
+            batch = all_rows[j:j + 200]
+            supabase.table('investor_trading').upsert(
+                batch, on_conflict='stock_code,trade_date'
+            ).execute()
+
+    print(f"✅ 수급 완료: {success}개 성공, {skip}개 건너뜀, {errors}개 오류\n")
+
+
+# ══════════════════════════════════════════════
 # 메인 실행
 # ══════════════════════════════════════════════
 
@@ -323,6 +404,7 @@ if __name__ == '__main__':
     update_prices()
     update_valuation()
     update_technical()
+    update_investor()
 
     elapsed = time.time() - start_time
     print(f"\n{'#' * 60}")

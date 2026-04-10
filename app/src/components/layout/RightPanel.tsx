@@ -6,6 +6,7 @@ import type { AppMode } from '../../App';
 import type { StockDetailData } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
+import CandleChart from '../stock-detail/CandleChart';
 
 interface RightPanelProps {
   stockCode: string | null;
@@ -150,6 +151,9 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
               )}
             </div>
           )}
+
+          {/* 캔들차트 */}
+          <CandleChart stockCode={stock.stock_code} />
 
           {/* 종합 점수 */}
           <ScoreSection score={score} />

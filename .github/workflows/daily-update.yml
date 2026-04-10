@@ -23,13 +23,15 @@ jobs:
 
       - name: 패키지 설치
         run: |
-          pip install finance-datareader pykrx pandas numpy python-dotenv supabase
+          pip install finance-datareader pykrx pandas numpy python-dotenv supabase requests
 
       - name: 일일 데이터 업데이트 실행
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: |
           cd src/data/collectors
           python daily_update.py
