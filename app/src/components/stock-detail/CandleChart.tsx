@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, ColorType } from 'lightweight-charts';
 import { useChartData, type ChartPeriod } from '../../hooks/useChartData';
 
@@ -12,23 +12,29 @@ const PERIODS: { label: string; value: ChartPeriod }[] = [
 
 interface CandleChartProps {
   stockCode: string;
+  height?: number;
 }
 
-export default function CandleChart({ stockCode }: CandleChartProps) {
+function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand, onExpand }: {
+  stockCode: string;
+  height: number;
+  period: ChartPeriod;
+  onPeriodChange: (p: ChartPeriod) => void;
+  showExpand?: boolean;
+  onExpand?: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const [period, setPeriod] = useState<ChartPeriod>('3M');
   const { data, loading } = useChartData(stockCode, period);
 
-  // 차트 생성/파괴
   useEffect(() => {
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 250,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: '#1a1d27' },
         textColor: '#8b8fa3',
@@ -38,16 +44,9 @@ export default function CandleChart({ stockCode }: CandleChartProps) {
         vertLines: { color: '#2a2e3a' },
         horzLines: { color: '#2a2e3a' },
       },
-      crosshair: {
-        mode: 0,
-      },
-      rightPriceScale: {
-        borderColor: '#2a2e3a',
-      },
-      timeScale: {
-        borderColor: '#2a2e3a',
-        timeVisible: false,
-      },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#2a2e3a' },
+      timeScale: { borderColor: '#2a2e3a', timeVisible: false },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -86,20 +85,13 @@ export default function CandleChart({ stockCode }: CandleChartProps) {
       candleRef.current = null;
       volumeRef.current = null;
     };
-  }, []);
+  }, [height]);
 
-  // 데이터 업데이트
   useEffect(() => {
     if (!candleRef.current || !volumeRef.current || data.length === 0) return;
 
     candleRef.current.setData(
-      data.map(d => ({
-        time: d.time,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }))
+      data.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close }))
     );
 
     volumeRef.current.setData(
@@ -120,15 +112,58 @@ export default function CandleChart({ stockCode }: CandleChartProps) {
           <button
             key={p.value}
             className={`chart-period-btn ${period === p.value ? 'active' : ''}`}
-            onClick={() => setPeriod(p.value)}
+            onClick={() => onPeriodChange(p.value)}
           >
             {p.label}
           </button>
         ))}
+        {showExpand && (
+          <button className="chart-expand-btn" onClick={onExpand} title="크게 보기">
+            ⛶
+          </button>
+        )}
       </div>
       <div ref={containerRef} className="chart-container">
         {loading && <div className="chart-loading">로딩 중...</div>}
       </div>
     </div>
+  );
+}
+
+export default function CandleChart({ stockCode, height = 300 }: CandleChartProps) {
+  const [period, setPeriod] = useState<ChartPeriod>('3M');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPeriod, setModalPeriod] = useState<ChartPeriod>('3M');
+
+  const openModal = useCallback(() => {
+    setModalPeriod(period);
+    setModalOpen(true);
+  }, [period]);
+
+  return (
+    <>
+      <ChartCore
+        stockCode={stockCode}
+        height={height}
+        period={period}
+        onPeriodChange={setPeriod}
+        showExpand
+        onExpand={openModal}
+      />
+
+      {modalOpen && (
+        <div className="chart-modal-overlay" onClick={() => setModalOpen(false)}>
+          <div className="chart-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="chart-modal-close" onClick={() => setModalOpen(false)}>✕</button>
+            <ChartCore
+              stockCode={stockCode}
+              height={Math.round(window.innerHeight * 0.65)}
+              period={modalPeriod}
+              onPeriodChange={setModalPeriod}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

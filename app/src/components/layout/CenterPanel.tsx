@@ -4,6 +4,7 @@ import type { ScreenerFilters } from '../../types/stock';
 import { useThemeStocks } from '../../hooks/useThemeData';
 import { useScreenerStocks } from '../../hooks/useScreenerStocks';
 import { useWatchlistStocks } from '../../hooks/useWatchlistStocks';
+import CandleChart from '../stock-detail/CandleChart';
 
 interface CenterPanelProps {
   mode: AppMode;
@@ -70,6 +71,12 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
 
   return (
     <main className="panel center-panel">
+      {selectedStockCode && (
+        <div className="center-chart-area">
+          <CandleChart stockCode={selectedStockCode} height={300} />
+        </div>
+      )}
+
       <div className="section-title">{title}</div>
 
       {loading ? (

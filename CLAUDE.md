@@ -344,8 +344,12 @@
   - `app/src/hooks/useChartData.ts`: Supabase price_daily에서 기간별 OHLCV 조회
   - `app/src/components/stock-detail/CandleChart.tsx`: lightweight-charts v5, 기간 선택(1M/3M/6M/1Y/3Y)
   - 상승=빨강(#ef4444), 하락=파랑(#3b82f6) — 한국 주식 색상
-- **환경변수**: `.env`에 `KIS_APP_KEY`, `KIS_APP_SECRET` 추가 필요
-- **GitHub Secrets**: `KIS_APP_KEY`, `KIS_APP_SECRET` 등록 필요
+- **시세 수집 pykrx → KIS API 교체**: `daily_update.py`의 `update_prices()` 함수를 KIS API 일봉 조회로 교체
+  - 기존 pykrx `get_market_ohlcv`가 KRX API 변경으로 불안정 (4/8 이후 시세 누락 발생)
+  - 종목별 순회 방식으로 약 20분 소요 (timeout 120분 내)
+  - source = 'kis_api'
+- **수급 단위 변환 버그 수정**: `useThemeData.ts`에서 `totalNetBuy / 100,000,000`(원→억) → `totalNetBuy / 100`(백만원→억) 수정
+  - KIS API 수급 데이터가 백만원 단위로 저장되는데 프론트엔드에서 원 단위로 가정해서 모든 테마가 LOW로 표시되던 문제 해결
 
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:
@@ -506,8 +510,9 @@ stock-analyzer/
 
 ### pykrx API 복구 확인 (정기적으로 체크 필요)
 - **상태**: 2026-04-01 기준 `get_market_fundamental`, `get_market_trading_value_by_date` 등 고장
-- **영향**: 밸류에이션(PER/PBR) 수집 불가 (시세는 `get_market_ohlcv`로 정상)
+- **영향**: 밸류에이션(PER/PBR) 수집 불가
 - **수급 데이터**: ✅ 한국투자증권(KIS) API로 대체 완료 (`collect_investor_kis.py`)
+- **시세 수집**: ✅ KIS API 일봉 조회로 대체 완료 (`daily_update.py update_prices()`)
 - **확인 방법**: `python scripts/test_valuation.py` 실행
 - **GitHub 이슈 확인**: https://github.com/sharebook-kr/pykrx/issues
 - **복구 시 실행할 것**:
