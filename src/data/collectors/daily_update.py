@@ -49,72 +49,111 @@ def get_all_stocks():
 
 
 # ══════════════════════════════════════════════
-# Step 1: 최근 시세 수집 (pykrx 전종목 일괄)
+# Step 1: 최근 시세 수집 (KIS API 종목별 일봉)
 # ══════════════════════════════════════════════
 
 def update_prices():
-    """pykrx get_market_ohlcv로 날짜별 전종목 시세 일괄 수집"""
+    """KIS API inquire-daily-itemchartprice로 종목별 최근 10거래일 일봉 수집"""
     print("=" * 60)
-    print(f"Step 1: 시세 업데이트 ({TODAY_STR})")
+    print(f"Step 1: 시세 업데이트 - KIS API ({TODAY_STR})")
     print("=" * 60)
+
+    stocks = get_all_stocks()
+    total = len(stocks)
+
+    start_date = (TODAY - timedelta(days=20)).strftime('%Y%m%d')  # 영업일 10일 확보
+    end_date = TODAY.strftime('%Y%m%d')
 
     total_rows = 0
-    days_collected = 0
+    success = 0
+    errors = 0
+    all_rows = []
 
-    # 최근 10일 날짜 목록
-    dates = []
-    current = TODAY - timedelta(days=10)
-    while current <= TODAY:
-        dates.append(current.strftime('%Y%m%d'))
-        current += timedelta(days=1)
+    for i, s in enumerate(stocks):
+        code = s['stock_code']
+        name = s['stock_name']
 
-    for date_str in dates:
         try:
-            # 전 종목 OHLCV 한 번에 가져오기
-            df = stock.get_market_ohlcv(date_str, market='ALL')
+            data = kis_get(
+                '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
+                'FHKST03010100',
+                {
+                    'FID_COND_MRKT_DIV_CODE': 'J',
+                    'FID_INPUT_ISCD': code,
+                    'FID_INPUT_DATE_1': start_date,
+                    'FID_INPUT_DATE_2': end_date,
+                    'FID_PERIOD_DIV_CODE': 'D',
+                    'FID_ORG_ADJ_PRC': '0',
+                }
+            )
 
-            if df is None or df.empty:
+            if not data:
                 continue
 
-            trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-            rows = []
-
-            for ticker, row in df.iterrows():
-                close_val = int(row['종가']) if row['종가'] > 0 else None
-                if not close_val:
+            items = data.get('output2', [])
+            for item in items:
+                date_str = item.get('stck_bsop_date', '')
+                close_str = item.get('stck_clpr', '').strip()
+                if not date_str or not close_str:
                     continue
 
-                change_pct = round(float(row['등락률']), 4) if '등락률' in df.columns else None
+                close_val = int(close_str)
+                if close_val <= 0:
+                    continue
 
-                rows.append({
-                    'stock_code': ticker,
+                open_val = int(item.get('stck_oprc', '0') or '0')
+                high_val = int(item.get('stck_hgpr', '0') or '0')
+                low_val = int(item.get('stck_lwpr', '0') or '0')
+                volume = int(item.get('acml_vol', '0') or '0')
+
+                # 등락률: prdy_vrss / (close - prdy_vrss) * 100
+                prdy_vrss = int(item.get('prdy_vrss', '0') or '0')
+                prev_close = close_val - prdy_vrss
+                change_pct = round(prdy_vrss / prev_close * 100, 4) if prev_close > 0 else None
+
+                trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                all_rows.append({
+                    'stock_code': code,
                     'trade_date': trade_date,
-                    'open': int(row['시가']) if row['시가'] > 0 else None,
-                    'high': int(row['고가']) if row['고가'] > 0 else None,
-                    'low': int(row['저가']) if row['저가'] > 0 else None,
+                    'open': open_val if open_val > 0 else None,
+                    'high': high_val if high_val > 0 else None,
+                    'low': low_val if low_val > 0 else None,
                     'close': close_val,
-                    'volume': int(row['거래량']),
+                    'volume': volume,
                     'change_pct': change_pct,
-                    'source': 'pykrx'
+                    'source': 'kis_api',
                 })
 
-            if rows:
-                for j in range(0, len(rows), 200):
-                    batch = rows[j:j + 200]
-                    supabase.table('price_daily').upsert(
-                        batch, on_conflict='stock_code,trade_date'
-                    ).execute()
-                total_rows += len(rows)
-                days_collected += 1
-                print(f"  {trade_date}: {len(rows)}개 종목")
-
-            time.sleep(1)
+            success += 1
 
         except Exception as e:
-            print(f"  ⚠️ {date_str} 오류: {e}")
-            continue
+            if errors < 5:
+                print(f"  ❌ {name}({code}): {e}")
+            errors += 1
 
-    print(f"✅ 시세 완료: {days_collected}일, {total_rows}건\n")
+        # 1000행마다 배치 저장
+        if len(all_rows) >= 1000:
+            for j in range(0, len(all_rows), 200):
+                batch = all_rows[j:j + 200]
+                supabase.table('price_daily').upsert(
+                    batch, on_conflict='stock_code,trade_date'
+                ).execute()
+            total_rows += len(all_rows)
+            all_rows = []
+
+        if (i + 1) % 500 == 0:
+            print(f"  ⏳ {i+1}/{total} ({success} 성공, {total_rows}행 저장)")
+
+    # 잔여 저장
+    if all_rows:
+        for j in range(0, len(all_rows), 200):
+            batch = all_rows[j:j + 200]
+            supabase.table('price_daily').upsert(
+                batch, on_conflict='stock_code,trade_date'
+            ).execute()
+        total_rows += len(all_rows)
+
+    print(f"✅ 시세 완료: {success}개 종목, {total_rows}건 (오류 {errors}개)\n")
     return total_rows
 
 
