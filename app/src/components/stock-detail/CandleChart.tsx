@@ -39,6 +39,7 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
         background: { type: ColorType.Solid, color: '#1a1d27' },
         textColor: '#8b8fa3',
         fontSize: 11,
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: '#2a2e3a' },
