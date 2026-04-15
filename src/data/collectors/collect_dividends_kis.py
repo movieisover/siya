@@ -50,6 +50,31 @@ def get_all_stocks():
     return stocks
 
 
+def get_latest_valuation_dates():
+    """
+    종목별 valuation 테이블의 가장 최신 trade_date 맵.
+    dps/div_yield는 기존 per/pbr 행에만 UPDATE한다 (새 행 INSERT 금지).
+    """
+    cutoff = (TODAY - timedelta(days=10)).strftime('%Y-%m-%d')
+    date_map = {}
+    offset = 0
+    while True:
+        res = supabase.table('valuation').select(
+            'stock_code, trade_date'
+        ).gte('trade_date', cutoff).order(
+            'trade_date', desc=True
+        ).range(offset, offset + 999).execute()
+
+        for r in res.data:
+            code = r['stock_code']
+            if code not in date_map:
+                date_map[code] = r['trade_date']
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return date_map
+
+
 def get_latest_prices():
     """
     종목별 최신 시세(close, trade_date) 맵.
@@ -120,8 +145,13 @@ def update_dividends():
     price_map = get_latest_prices()
     print(f"시세 있음: {len(price_map)}개 종목")
 
+    print("valuation 최신 날짜 로드 중...")
+    val_date_map = get_latest_valuation_dates()
+    print(f"valuation 있음: {len(val_date_map)}개 종목")
+
     success = 0
     skip_no_price = 0
+    skip_no_val = 0
     skip_no_div = 0
     errors = 0
     rows = []
@@ -136,9 +166,14 @@ def update_dividends():
             continue
 
         close = price_info['close']
-        trade_date = price_info['trade_date']
         if not close or close <= 0:
             skip_no_price += 1
+            continue
+
+        val_trade_date = val_date_map.get(code)
+        if not val_trade_date:
+            # 기존 per/pbr 행이 없으면 새 행을 만들지 않고 건너뜀
+            skip_no_val += 1
             continue
 
         try:
@@ -147,23 +182,20 @@ def update_dividends():
 
             if dps <= 0:
                 skip_no_div += 1
-                # 배당 없는 종목도 명시적으로 0 저장 (이전값 제거용)
                 rows.append({
                     'stock_code': code,
-                    'trade_date': trade_date,
+                    'trade_date': val_trade_date,
                     'dps': 0,
                     'div_yield': 0,
-                    'source': 'kis_api',
                 })
                 continue
 
             div_yield = round(dps / close * 100, 2)
             rows.append({
                 'stock_code': code,
-                'trade_date': trade_date,
+                'trade_date': val_trade_date,
                 'dps': round(dps, 2),
                 'div_yield': div_yield,
-                'source': 'kis_api',
             })
             success += 1
 
@@ -189,19 +221,25 @@ def update_dividends():
     print(f"  - 배당 있음: {success}개")
     print(f"  - 배당 없음: {skip_no_div}개")
     print(f"  - 시세 없음: {skip_no_price}개")
+    print(f"  - valuation 행 없음: {skip_no_val}개")
     print(f"  - 오류: {errors}개")
 
 
 def _save_batch(rows):
-    """valuation 테이블에 upsert (dps, div_yield만 업데이트)."""
-    for j in range(0, len(rows), 200):
-        batch = rows[j:j + 200]
+    """
+    기존 valuation 행(stock_code + trade_date 매칭)의 dps/div_yield만 UPDATE.
+    새 행을 INSERT하면 per/pbr이 NULL인 빈 행이 생겨 스크리너가 깨지므로 절대 upsert 금지.
+    """
+    for r in rows:
         try:
-            supabase.table('valuation').upsert(
-                batch, on_conflict='stock_code,trade_date'
+            supabase.table('valuation').update({
+                'dps': r['dps'],
+                'div_yield': r['div_yield'],
+            }).eq('stock_code', r['stock_code']).eq(
+                'trade_date', r['trade_date']
             ).execute()
         except Exception as e:
-            print(f"  ⚠️ 저장 실패: {e}")
+            print(f"  ⚠️ 저장 실패 ({r['stock_code']}): {e}")
 
 
 if __name__ == '__main__':
