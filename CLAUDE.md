@@ -164,9 +164,9 @@
 
 ### 진행 예정 (미루둔 작업)
 - [x] 한국투자증권 오픈API 연동 — 수급 수집 + 캔들차트 + 시세 교체 완료 (2026-04-10~11)
-- [x] 실시간 현재가 조회 — 종목 선택 시 KIS API로 현재가 1건 조회, Edge Function 프록시 (2026-04-11)
+- [x] 실시간 현재가 조회 시도 → Edge Function 해외 IP라 KIS API 차단 확인 → 기능 제거 (2026-04-15)
 - [ ] 한투 API 확장 — 배당 데이터 연동 검토
-- [ ] 상용화 시 실시간 웹소켓 검토 (⬇️ 실시간 데이터 로드맵 참고)
+- [ ] 상용화 시 실시간 검토 — 한국 서버 프록시 필요 (⬇️ 실시간 데이터 로드맵 참고)
 - [ ] Vercel 커스텀 도메인 연결 (필요 시)
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 - [ ] 사용자 피드백 반영
@@ -369,6 +369,17 @@
   - 2단계(상용화 초기): REST polling (10초/30초)
   - 3단계(상용화 확장): KIS 웹소켓 + Supabase Realtime
 
+### 2026-04-15: Edge Function IP 제한 확인 + 실시간 기능 제거 + 갱신시간 변경
+- **Edge Function 해외 IP 제한 확인**: Supabase Edge Function에서 KIS API 호출 시 500 에러
+  - 원인: Edge Function이 해외 서버(Deno Deploy)에서 실행되어 KIS API가 IP 차단
+  - Python(daily_update.py)은 GitHub Actions(REST 호출)에서 정상 동작 → 토큰 발급만 IP 바인딩, API 호출은 IP 제한 없음
+  - Edge Function은 토큰도 발급 못하고 API 호출도 차단됨
+- **실시간 현재가 기능 제거**: useRealtimePrice.ts, kis-price Edge Function 삭제
+- **KIS 토큰 DB 공유 구조 구현**: kis_tokens 테이블에 app_key/app_secret 추가, Python이 저장 → 공유
+- **일괄 갱신 시간 변경**: 16:30 → 16:00 (KST), 장 마감 후 최대한 빠른 갱신
+- **의사결정**: 실시간 기능은 한국 서버 프록시 없이는 불가 → MVP는 16:00 일괄 배치로 충분
+- **실시간 데이터 로드맵 업데이트**: 해외 IP 제한 사항 반영, 한국 서버 필요성 명시
+
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:
   - `hooks/useWatchlist.ts`: watchlist 테이블 CRUD (추가/삭제/메모수정/관심여부확인/메모조회)
@@ -528,32 +539,34 @@ stock-analyzer/
 
 ### 현재 (MVP): REST API + 배치 수집
 ```
-장 마감 후 16:30 → GitHub Actions → KIS REST API → 전 종목 일괄 수집 → DB
-종목 선택 시       → Edge Function → KIS REST API → 해당 종목 1건 조회 → 화면 표시
+장 마감 후 16:00 → GitHub Actions → KIS REST API → 전 종목 일괄 수집 → DB
 ```
 - 장점: 비용 제로, 구현 간단, API 호출량 최소
-- 한계: 사용자가 클릭해야 최신가 갱신
+- 한계: 장중 실시간 데이터 없음 (16:00 갱신 전까지 전일 종가)
 
-### 2단계 (상용화 초기): REST API + 주기적 조회
-```
-종목 상세 열린 상태에서 → 10초마다 자동 갱신 (setInterval)
-관심종목 목록          → 30초마다 자동 갱신
-```
-- 추가 API 호출: 종목당 분당 6회 (초당 제한 여유 충분)
-- 구현: useRealtimePrice 훅에 polling 주기 추가만 하면 됨
+> ⚠️ **Edge Function 해외 IP 제한**: Supabase Edge Function은 해외 서버에서 실행되어 KIS API가 IP를 차단함 (2026-04-15 확인)
+> → Edge Function으로 KIS API 직접 호출 불가. 한국 서버 프록시 필요.
 
-### 3단계 (상용화 확장): 웹소켓 실시간
+### 2단계 (상용화 초기): GitHub Actions 장중 주기적 수집
 ```
-서버 (Supabase Edge Function 또는 별도 서버)
+장중 매시 정각 → GitHub Actions → 테마/관심종목만 시세 갱신 (~1분)
+```
+- 대상: 테마 매핑 종목(~148개) + 관심종목 → 약 160개, ~1분 소요
+- 구현: 별도 워크플로 추가 (09:00~15:30 매시 정각)
+- GitHub Actions는 해외 서버이지만 KIS API는 REST 호출 시 IP 제한 없음 (토큰만 IP 바인딩)
+
+### 3단계 (상용화 확장): 한국 서버 + 웹소켓 실시간
+```
+한국 서버 (AWS Seoul / NCP 등)
   └── KIS 웹소켓 연결 (H0STCNT0: 실시간 체결가)
   └── 관심종목/선택 종목만 구독 등록
-  └── 체결 데이터 수신 → 프론트엔드로 푸시
+  └── 체결 데이터 수신 → Supabase Realtime으로 프론트엔드 푸시
 ```
+- **핵심: 한국 내 서버 필수** (KIS API IP 제한 때문)
 - 장점: 초단위 실시간, API 호출 제한 없음
-- 필요 인프라: 상시 연결 유지할 서버 (비용 발생)
-- 한투 API 웹소켓: 종목당 구독 등록 필요 (H0STCNT0 TR)
-- 고려사항: Supabase Realtime과 연동하면 DB 변경을 프론트에 자동 푸시 가능
+- 필요 인프라: 상시 연결 유지할 한국 서버 (비용 발생)
 - 시기: 사용자 수 증가 + 실시간 수요 확인 후
+- 참고: 한투 API 웹소켓 연결 예제는 [open-trading-api GitHub](https://github.com/koreainvestment/open-trading-api) 참고
 
 ---
 

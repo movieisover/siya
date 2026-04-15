@@ -4,7 +4,6 @@ import type { ScreenerFilters } from '../../types/stock';
 import { useThemeStocks } from '../../hooks/useThemeData';
 import { useScreenerStocks } from '../../hooks/useScreenerStocks';
 import { useWatchlistStocks } from '../../hooks/useWatchlistStocks';
-import { useRealtimePrice } from '../../hooks/useRealtimePrice';
 import CandleChart from '../stock-detail/CandleChart';
 
 interface CenterPanelProps {
@@ -23,7 +22,6 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
   const { stocks: themeStocks, loading: themeLoading } = useThemeStocks(mode === 'theme' ? selectedThemeId : null);
   const { stocks: screenerStocks, loading: screenerLoading, totalCount } = useScreenerStocks(mode === 'screener' ? screenerFilters : null);
   const { stocks: watchStocks, loading: watchLoading } = useWatchlistStocks(mode === 'watchlist' ? watchlistCodes : []);
-  const { data: realtimePrice, isLive } = useRealtimePrice(selectedStockCode);
 
   const stocks = mode === 'theme' ? themeStocks : mode === 'screener' ? screenerStocks : watchStocks;
   const loading = mode === 'theme' ? themeLoading : mode === 'screener' ? screenerLoading : watchLoading;
@@ -78,7 +76,6 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
           <CandleChart
             stockCode={selectedStockCode}
             height={300}
-            realtimePrice={isLive && realtimePrice ? { price: realtimePrice.price, volume: realtimePrice.volume } : null}
           />
         </div>
       )}
