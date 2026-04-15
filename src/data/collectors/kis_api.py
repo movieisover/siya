@@ -84,7 +84,9 @@ def _load_cached_token_file():
         with open(_TOKEN_CACHE_PATH, 'r') as f:
             cache = json.load(f)
         expires_at = datetime.fromisoformat(cache['expires_at'])
-        if datetime.now() < expires_at - timedelta(minutes=30):
+        # tz-aware/naive 호환 처리
+        now = datetime.now(timezone.utc) if expires_at.tzinfo else datetime.now()
+        if now < expires_at - timedelta(minutes=30):
             return cache['access_token']
     except Exception:
         pass
@@ -177,3 +179,33 @@ def kis_get(endpoint, tr_id, params):
         return None
 
     return data
+
+
+def get_dividend_history(stock_code, from_date=None, to_date=None):
+    """
+    KIS 예탁원정보 배당일정 조회 (HHKDB669102C0).
+    - stock_code: 6자리 종목코드
+    - from_date/to_date: YYYYMMDD (미지정 시 최근 1년)
+    - 반환: output1 배당 이력 리스트 (record_date, per_sto_divi_amt, divi_kind 등)
+             실패 시 빈 리스트
+    """
+    if to_date is None:
+        to_date = datetime.now().strftime('%Y%m%d')
+    if from_date is None:
+        from_date = (datetime.now() - timedelta(days=400)).strftime('%Y%m%d')
+
+    data = kis_get(
+        '/uapi/domestic-stock/v1/ksdinfo/dividend',
+        'HHKDB669102C0',
+        {
+            'CTS': '',
+            'GB1': '0',
+            'F_DT': from_date,
+            'T_DT': to_date,
+            'SHT_CD': stock_code,
+            'HIGH_GB': '',
+        }
+    )
+    if not data:
+        return []
+    return data.get('output1', []) or []
