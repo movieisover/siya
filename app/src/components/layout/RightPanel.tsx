@@ -163,7 +163,8 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
 ROE / ROA: 수익성 지표
 PER / PBR: 밸류에이션 지표
 부채비율: 재무 안정성
-배당수익률: 현금 수익
+배당수익률: 연간 배당금 ÷ 주가 (높을수록 배당 매력)
+DPS(주당배당금): 1주당 받는 배당금 (원)
 
 데이터:
 • ROE/ROA/부채비율: DART 재무제표 기반 자체 계산 (연 1회)
