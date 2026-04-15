@@ -180,6 +180,121 @@ export default function HelpPage({ onClose }: HelpPageProps) {
             </table>
           </section>
 
+          {/* 데이터 현황 */}
+          <section className="help-section">
+            <h3>📊 데이터 현황</h3>
+            <p>시야 앱이 사용하는 각 데이터의 출처와 갱신 주기입니다. 일부 지표는 사용자에게 보이는 시점에 실시간 계산되고, 나머지는 배치 작업으로 DB에 저장됩니다.</p>
+            <table className="help-table help-data-table">
+              <thead>
+                <tr>
+                  <th>데이터</th>
+                  <th>소스</th>
+                  <th>갱신 시점</th>
+                  <th>앱 표시</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>종목 마스터</td>
+                  <td>KRX (한국거래소)</td>
+                  <td><span className="data-badge data-badge-manual">수동 (필요 시)</span></td>
+                  <td>종목명, 코드</td>
+                </tr>
+                <tr>
+                  <td>업종</td>
+                  <td>KRX (한국거래소)</td>
+                  <td><span className="data-badge data-badge-manual">수동 (필요 시)</span></td>
+                  <td>업종 표시</td>
+                </tr>
+                <tr>
+                  <td>일별 시세</td>
+                  <td>한국투자증권 API</td>
+                  <td><span className="data-badge data-badge-daily">매일 16:00 자동</span></td>
+                  <td>현재가, 등락률, 캔들차트</td>
+                </tr>
+                <tr>
+                  <td>PER / PBR</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-daily">매일 16:00 자동</span></td>
+                  <td>핵심 지표</td>
+                </tr>
+                <tr>
+                  <td>배당수익률 / DPS</td>
+                  <td>한국투자증권 API</td>
+                  <td><span className="data-badge data-badge-weekly">매주 월 17:00 자동</span></td>
+                  <td>핵심 지표</td>
+                </tr>
+                <tr>
+                  <td>재무제표</td>
+                  <td>DART 공시</td>
+                  <td><span className="data-badge data-badge-yearly">연 1회 (4~5월)</span></td>
+                  <td>재무 추이</td>
+                </tr>
+                <tr>
+                  <td>ROE / ROA / 영업이익률 / 부채비율</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-yearly">재무제표 수집 시</span></td>
+                  <td>핵심 지표</td>
+                </tr>
+                <tr>
+                  <td>기관/외국인 수급</td>
+                  <td>한국투자증권 API</td>
+                  <td><span className="data-badge data-badge-daily">매일 16:00 자동</span></td>
+                  <td>테마 신뢰도</td>
+                </tr>
+                <tr>
+                  <td>RSI / MACD</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-daily">매일 16:00 자동</span></td>
+                  <td>타이밍 지표</td>
+                </tr>
+                <tr>
+                  <td>테마 목록 / 매핑</td>
+                  <td>수동 등록</td>
+                  <td><span className="data-badge data-badge-manual">초기 설정</span></td>
+                  <td>테마 목록</td>
+                </tr>
+                <tr>
+                  <td>공시 목록</td>
+                  <td>DART 공시</td>
+                  <td><span className="data-badge data-badge-hourly">매시 정각 자동</span></td>
+                  <td>공시사항 탭</td>
+                </tr>
+                <tr>
+                  <td>종합 점수</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-live">화면 표시 시</span></td>
+                  <td>점수 바 차트</td>
+                </tr>
+                <tr>
+                  <td>테마 신뢰도</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-live">화면 표시 시</span></td>
+                  <td>HIGH/MEDIUM/LOW</td>
+                </tr>
+                <tr>
+                  <td>타이밍 등급</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-live">화면 표시 시</span></td>
+                  <td>🟢🟡🔴</td>
+                </tr>
+                <tr>
+                  <td>업종 평균</td>
+                  <td>자체 계산</td>
+                  <td><span className="data-badge data-badge-live">화면 표시 시</span></td>
+                  <td>동종업계 비교</td>
+                </tr>
+                <tr>
+                  <td>시야 AI</td>
+                  <td>Claude API</td>
+                  <td><span className="data-badge data-badge-live">질문 시</span></td>
+                  <td>AI 탭</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="help-note">* 배치 작업은 GitHub Actions로 자동 실행됩니다. 한국 증시 휴장일에는 갱신이 없습니다.</p>
+          </section>
+
           <div className="help-disclaimer">
             ⚠️ 이 앱의 모든 분석은 참고용이며, 투자 결정은 본인 판단으로 하세요.
           </div>

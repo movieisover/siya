@@ -276,7 +276,9 @@ function ThemeCard({
 
 거래량(30) + 수급(50) + 동반상승(20) = 100점
 HIGH: 70~100 / MEDIUM: 40~69 / LOW: 0~39
-현재 ${reliability.total_score}점`} />
+현재 ${reliability.total_score}점
+
+데이터: 한국투자증권 API, 매일 16:00 자동 갱신`} />
           </span>
         )}
       </div>
@@ -298,7 +300,9 @@ RSI(과열도)와 MACD(추세)를 조합해 판단합니다.
 🔴 과열주의: 과매수 구간이거나 하락 추세
 
 RSI 70↑ 과열 / 30~70 중립 / 30↓ 저점
-GC 60%↑ 상승추세 / 40~60% 혼조 / 40%↓ 하락`} />
+GC 60%↑ 상승추세 / 40~60% 혼조 / 40%↓ 하락
+
+데이터: 자체 계산, 매일 16:00 자동 갱신`} />
           </>
         ) : reliability ? (
           <span style={{ color: 'var(--color-text-secondary)' }}>타이밍 데이터 없음</span>

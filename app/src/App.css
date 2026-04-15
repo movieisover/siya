@@ -1551,6 +1551,50 @@
   margin-top: 6px;
 }
 
+/* 데이터 현황 테이블 배지 */
+.help-data-table td {
+  font-size: 12px;
+}
+
+.data-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.data-badge-daily {
+  background: rgba(74, 158, 255, 0.15);
+  color: var(--color-accent);
+}
+
+.data-badge-weekly {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
+.data-badge-hourly {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-green);
+}
+
+.data-badge-yearly {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--color-yellow);
+}
+
+.data-badge-manual {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--color-text-secondary);
+}
+
+.data-badge-live {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-green);
+}
+
 .help-example {
   margin: 12px 0;
   padding: 12px 16px;

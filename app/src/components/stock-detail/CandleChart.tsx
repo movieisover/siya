@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, ColorType } from 'lightweight-charts';
 import { useChartData, type ChartPeriod, type RealtimePriceData } from '../../hooks/useChartData';
+import Tooltip from '../common/Tooltip';
 
 const PERIODS: { label: string; value: ChartPeriod }[] = [
   { label: '1개월', value: '1M' },
@@ -125,6 +126,12 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
             ⛶
           </button>
         )}
+        <Tooltip text={`일봉 캔들차트 (OHLCV + 거래량)
+
+빨간색 캔들 = 상승
+파란색 캔들 = 하락
+
+데이터: 한국투자증권 API, 매일 16:00 자동 갱신`} />
       </div>
       <div ref={containerRef} className="chart-container">
         {loading && <div className="chart-loading">로딩 중...</div>}

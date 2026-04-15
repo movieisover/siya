@@ -156,7 +156,20 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
 
           {/* 핵심 지표 */}
           <div className="detail-section">
-            <div className="detail-section-title">핵심 지표</div>
+            <div className="detail-section-title">
+              핵심 지표
+              <Tooltip text={`종목의 수익성/가치/안전성/배당을 한눈에 보는 6개 지표입니다.
+
+ROE / ROA: 수익성 지표
+PER / PBR: 밸류에이션 지표
+부채비율: 재무 안정성
+배당수익률: 현금 수익
+
+데이터:
+• ROE/ROA/부채비율: DART 재무제표 기반 자체 계산 (연 1회)
+• PER/PBR: 자체 계산, 매일 16:00 자동 갱신
+• 배당수익률/DPS: 한국투자증권 API, 매주 월 17:00 자동 갱신`} />
+            </div>
             <div className="metric-grid">
               <MetricCard
                 label="ROE"
@@ -217,7 +230,9 @@ RSI: 주가가 너무 많이 올랐는지/떨어졌는지 측정
 
 MACD: 추세의 방향과 전환 시점 판단
 MACD > Signal → 상승 전환 신호 (🟢)
-MACD < Signal → 하락 전환 신호 (🔴)`} />
+MACD < Signal → 하락 전환 신호 (🔴)
+
+데이터: 자체 계산, 매일 16:00 자동 갱신`} />
               </div>
               <div className="timing-grid">
                 <div className="timing-card">
@@ -279,7 +294,9 @@ MACD < Signal → 하락 전환 신호 (🔴)`} />
 
 KRX 공식 업종 분류 기준 (테마와는 별개)
 바 = 종목값, 노란 선 = 업종 평균
-바가 노란 선을 넘으면 업종 평균보다 우수`} />
+바가 노란 선을 넘으면 업종 평균보다 우수
+
+데이터: 화면 표시 시 자체 계산`} />
             </div>
               <div className="comparison-bars">
                 {sectorAvg.roe !== null && latestFin?.roe !== null && latestFin?.roe !== undefined && (
@@ -345,7 +362,9 @@ function ScoreSection({ score }: { score: StockScore }) {
 • 테마 모드: 테마 내 평균 PER
 • 스크리너: 시장 평균 PER
 • 관심종목/검색: KRX 업종 평균 PER
-→ 모드에 따라 점수가 다를 수 있습니다`} />
+→ 모드에 따라 점수가 다를 수 있습니다
+
+데이터: 화면 표시 시 자체 계산`} />
       </div>
       <div className="score-bars">
         <ScoreBar label="품질" value={score.quality_score} max={50} color="var(--color-green)" tooltip="기업이 얼마나 잘 벌고 있는지 평가합니다.
