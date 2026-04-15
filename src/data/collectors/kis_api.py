@@ -1,13 +1,17 @@
 """
 시야 (Siya) — 한국투자증권 오픈API 유틸리티
-토큰 발급/캐싱 + 공통 GET 요청 함수
+토큰 발급/캐싱 (DB + 파일) + 공통 GET 요청 함수
+
+토큰은 Supabase `kis_tokens` 테이블에 저장하여
+Python 수집기와 Edge Function(kis-price)이 공유한다.
+KIS API 1일 1회 발급 제한을 회피하기 위함.
 """
 
 import os
 import json
 import time
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 # 프로젝트 루트 .env 로드
@@ -18,7 +22,7 @@ BASE_URL = "https://openapi.koreainvestment.com:9443"
 APP_KEY = os.getenv('KIS_APP_KEY')
 APP_SECRET = os.getenv('KIS_APP_SECRET')
 
-# 토큰 캐시 파일 경로
+# 토큰 파일 캐시 (DB 장애 대비 로컬 백업)
 _TOKEN_CACHE_PATH = os.path.join(os.path.dirname(__file__), '.kis_token_cache.json')
 
 # API 호출 간 최소 대기 시간 (초당 3건 제한 대응)
@@ -26,8 +30,54 @@ _MIN_INTERVAL = 0.4
 _last_call_time = 0.0
 
 
-def _load_cached_token():
-    """캐시된 토큰 로드. 유효하면 반환, 아니면 None."""
+def _get_supabase():
+    """Supabase 클라이언트 (service_role). 지연 로딩으로 순환 import 회피."""
+    try:
+        from .utils import get_supabase
+    except ImportError:
+        from utils import get_supabase
+    return get_supabase()
+
+
+def _load_token_from_db():
+    """Supabase kis_tokens에서 유효한 토큰 로드. 없거나 만료되면 None."""
+    try:
+        sb = _get_supabase()
+        res = sb.table('kis_tokens').select('access_token, expires_at').eq('id', 1).execute()
+        if not res.data:
+            return None
+        row = res.data[0]
+        expires_at = datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00'))
+        # 30분 여유를 두고 판정
+        if datetime.now(timezone.utc) < expires_at - timedelta(minutes=30):
+            return row['access_token']
+    except Exception as e:
+        print(f"[KIS] DB 토큰 조회 실패: {e}")
+    return None
+
+
+def _save_token_to_db(access_token, expires_at_iso):
+    """
+    Supabase kis_tokens에 토큰 upsert (1행 유지).
+    app_key/app_secret도 함께 저장 — Edge Function이 DB에서 읽어서 사용하기 위함
+    (Supabase secrets는 / = 같은 특수문자에서 깨지므로 DB를 single source of truth로 사용).
+    """
+    try:
+        sb = _get_supabase()
+        sb.table('kis_tokens').upsert({
+            'id': 1,
+            'access_token': access_token,
+            'expires_at': expires_at_iso,
+            'app_key': APP_KEY,
+            'app_secret': APP_SECRET,
+        }, on_conflict='id').execute()
+        print(f"[KIS] DB에 토큰 저장 완료")
+    except Exception as e:
+        print(f"[KIS] DB 토큰 저장 실패: {e}")
+
+
+def _load_cached_token_file():
+    """파일 캐시 토큰 로드 (DB 장애 시 fallback)."""
     if not os.path.exists(_TOKEN_CACHE_PATH):
         return None
     try:
@@ -41,22 +91,32 @@ def _load_cached_token():
     return None
 
 
-def _save_token_cache(access_token, expires_at):
-    """토큰을 파일에 캐싱."""
-    cache = {
-        'access_token': access_token,
-        'expires_at': expires_at,
-    }
-    with open(_TOKEN_CACHE_PATH, 'w') as f:
-        json.dump(cache, f)
+def _save_token_cache_file(access_token, expires_at_iso):
+    """토큰을 파일에도 캐싱 (DB 장애 대비)."""
+    try:
+        cache = {
+            'access_token': access_token,
+            'expires_at': expires_at_iso,
+        }
+        with open(_TOKEN_CACHE_PATH, 'w') as f:
+            json.dump(cache, f)
+    except Exception:
+        pass
 
 
 def get_access_token():
-    """access_token 발급 (캐시 우선, 없으면 새로 발급)."""
-    cached = _load_cached_token()
-    if cached:
-        return cached
+    """access_token 발급. 우선순위: DB → 파일 → 신규 발급."""
+    # 1) DB에서 먼저 확인 (Edge Function과 공유)
+    db_token = _load_token_from_db()
+    if db_token:
+        return db_token
 
+    # 2) 파일 캐시 (로컬 fallback)
+    file_token = _load_cached_token_file()
+    if file_token:
+        return file_token
+
+    # 3) 신규 발급
     url = f"{BASE_URL}/oauth2/tokenP"
     body = {
         "grant_type": "client_credentials",
@@ -68,9 +128,12 @@ def get_access_token():
     data = resp.json()
 
     access_token = data['access_token']
-    # 토큰 유효기간: 24시간
-    expires_at = (datetime.now() + timedelta(hours=23)).isoformat()
-    _save_token_cache(access_token, expires_at)
+    # 토큰 유효기간: 24시간 → 23시간으로 보수적 설정
+    expires_at_dt = datetime.now(timezone.utc) + timedelta(hours=23)
+    expires_at_iso = expires_at_dt.isoformat()
+
+    _save_token_to_db(access_token, expires_at_iso)
+    _save_token_cache_file(access_token, expires_at_iso)
 
     print(f"[KIS] 새 토큰 발급 완료")
     return access_token

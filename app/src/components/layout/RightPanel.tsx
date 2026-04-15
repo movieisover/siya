@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStockDetail } from '../../hooks/useStockDetail';
-import { useRealtimePrice } from '../../hooks/useRealtimePrice';
 import { askSiyaAi, type AiMessage } from '../../lib/ai';
 import type { Financials, StockScore } from '../../types/stock';
 import type { AppMode } from '../../App';
@@ -20,7 +19,6 @@ interface RightPanelProps {
 
 export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate }: RightPanelProps) {
   const { data, loading } = useStockDetail(stockCode, mode, selectedThemeId);
-  const { data: realtimePrice, isLive } = useRealtimePrice(stockCode);
   const [activeTab, setActiveTab] = useState<'detail' | 'ai' | 'disclosure'>('detail');
   const [memoInput, setMemoInput] = useState('');
   const [memoEditing, setMemoEditing] = useState(false);
@@ -97,29 +95,21 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
             <div className="detail-stock-meta">
               {stock.stock_code} · {stock.market} · {stock.sector || '-'}
             </div>
-            {(() => {
-              const displayPrice = isLive && realtimePrice ? realtimePrice.price : price?.close;
-              const displayPct = isLive && realtimePrice ? realtimePrice.changePct : price?.change_pct;
-              if (!displayPrice) return null;
-              return (
-                <>
-                  <div className="detail-price-row">
-                    <span className="detail-price">{displayPrice.toLocaleString()}원</span>
-                    {displayPct !== null && displayPct !== undefined && (
-                      <span className={`detail-change ${displayPct >= 0 ? 'change-up' : 'change-down'}`}>
-                        {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(2)}%
-                      </span>
-                    )}
-                    {isLive && <span className="realtime-badge">실시간</span>}
-                  </div>
-                  <div className="detail-data-date">
-                    {isLive && realtimePrice
-                      ? formatRealtimeTimestamp(realtimePrice.timestamp)
-                      : price ? `${formatTradeDate(price.trade_date)} 기준` : ''}
-                  </div>
-                </>
-              );
-            })()}
+            {price?.close && (
+              <>
+                <div className="detail-price-row">
+                  <span className="detail-price">{price.close.toLocaleString()}원</span>
+                  {price.change_pct !== null && price.change_pct !== undefined && (
+                    <span className={`detail-change ${price.change_pct >= 0 ? 'change-up' : 'change-down'}`}>
+                      {price.change_pct >= 0 ? '+' : ''}{price.change_pct.toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+                <div className="detail-data-date">
+                  {formatTradeDate(price.trade_date)} 기준
+                </div>
+              </>
+            )}
           </div>
 
           {/* 관심종목 메모 (관심종목일 때만) */}
@@ -436,15 +426,6 @@ function formatTradeDate(dateStr: string): string {
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   const weekday = weekdays[date.getDay()];
   return `${month}월 ${day}일(${weekday})`;
-}
-
-function formatRealtimeTimestamp(isoStr: string): string {
-  const date = new Date(isoStr);
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  return `${month}월 ${day}일 ${hours}:${minutes} 기준`;
 }
 
 function getRsiColor(rsi: number | null): string {
