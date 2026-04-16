@@ -1,4 +1,4 @@
-name: 시야 배당 데이터 수집 (주 1회)
+name: 시야 배당 수집 (주 1회) — DPS/수익률 + 배당 일정
 
 on:
   schedule:
@@ -25,7 +25,7 @@ jobs:
         run: |
           pip install python-dotenv supabase requests
 
-      - name: KIS 배당 수집 실행
+      - name: KIS 배당 DPS/수익률 수집
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -34,3 +34,13 @@ jobs:
         run: |
           cd src/data/collectors
           python collect_dividends_kis.py
+
+      - name: KIS 배당 일정 수집 (최근 7일)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: |
+          cd src/data/collectors
+          python collect_dividend_schedule.py --days 7

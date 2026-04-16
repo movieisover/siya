@@ -19,7 +19,9 @@
       "Bash(node:*)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(pip show *)",
+      "Bash(conda list *)"
     ]
   }
 }

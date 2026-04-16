@@ -477,6 +477,113 @@
   margin-bottom: 10px;
 }
 
+/* 52주 고/저 밴드 */
+.week52-section {
+  background: var(--color-bg);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.week52-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.week52-title {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.week52-position {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.week52-position.week52-low-zone {
+  color: var(--color-down);
+}
+
+.week52-position.week52-mid-zone {
+  color: var(--color-text-secondary);
+}
+
+.week52-position.week52-high-zone {
+  color: var(--color-up);
+}
+
+.week52-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    rgba(59, 130, 246, 0.35) 0%,
+    rgba(139, 143, 163, 0.25) 50%,
+    rgba(239, 68, 68, 0.35) 100%
+  );
+  margin: 8px 0 10px;
+}
+
+.week52-marker {
+  position: absolute;
+  top: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  transform: translateX(-7px);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: left 0.3s ease;
+}
+
+.week52-range-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.week52-range-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.week52-range-item-right {
+  flex-direction: row;
+}
+
+.week52-range-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.week52-range-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.week52-range-diff {
+  font-size: 11px;
+  color: var(--color-up);
+  font-weight: 600;
+}
+
+.week52-range-diff-neg {
+  color: var(--color-down);
+}
+
 /* 종합 점수 */
 .score-section {
   background: var(--color-bg);
@@ -880,6 +987,85 @@
   border-radius: 1px;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+/* ── 경쟁사 개별 비교 ── */
+.competitors-table {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.competitors-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.competitors-row:last-child {
+  border-bottom: none;
+}
+
+.competitors-row.competitors-header {
+  background: var(--color-surface);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 7px 12px;
+}
+
+.competitors-row.competitors-row-self {
+  background: rgba(74, 158, 255, 0.08);
+  border-left: 2px solid var(--color-accent);
+  padding-left: 10px;
+}
+
+.competitors-row.competitors-avg-row {
+  background: var(--color-surface);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  border-top: 1px solid var(--color-border);
+}
+
+.comp-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.comp-col-name {
+  flex: 1.5;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.competitors-header .comp-col-name {
+  color: var(--color-text-secondary);
+}
+
+.competitors-avg-row .comp-col-name {
+  color: var(--color-text-secondary);
+}
+
+.comp-col-metric {
+  width: 68px;
+  flex-shrink: 0;
+}
+
+.comp-self-mark {
+  color: var(--color-yellow);
+  margin-right: 4px;
+  font-size: 11px;
 }
 
 /* ── 시야 AI 탭 ── */

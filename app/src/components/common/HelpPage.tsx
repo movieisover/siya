@@ -93,7 +93,6 @@ export default function HelpPage({ onClose }: HelpPageProps) {
                 <span className="help-grade help-grade-medium">MEDIUM: 40~69점</span>
                 <span className="help-grade help-grade-low">LOW: 0~39점</span>
               </div>
-              <p className="help-note">* 현재 기관/외국인 데이터 미수집 상태(pykrx API 고장)로 수급 점수 0점 → 전체 테마 LOW 표시 중</p>
             </div>
 
             <div className="help-subsection">

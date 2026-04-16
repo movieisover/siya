@@ -11,6 +11,31 @@ export interface SectorAvg {
   roe: number | null;
 }
 
+export interface Week52Range {
+  high: number;
+  low: number;
+}
+
+export interface CompetitorItem {
+  stock_code: string;
+  stock_name: string;
+  roe: number | null;
+  per: number | null;
+  pbr: number | null;
+  operating_margin: number | null;
+  isSelf: boolean;
+}
+
+export interface CompetitorsData {
+  items: CompetitorItem[];
+  sectorAverage: {
+    roe: number | null;
+    per: number | null;
+    pbr: number | null;
+    operating_margin: number | null;
+  };
+}
+
 export interface StockDetailData {
   stock: Stock;
   price: PriceDaily | null;
@@ -19,6 +44,8 @@ export interface StockDetailData {
   technical: Technical | null;
   score: StockScore;
   sectorAvg: SectorAvg;
+  week52: Week52Range | null;
+  competitors: CompetitorsData | null;
 }
 
 export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId?: number | null) {
@@ -37,12 +64,13 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
     setLoading(true);
 
     // 1. 기본 데이터 병렬 fetch
-    const [stockRes, priceRes, valRes, finRes, techRes] = await Promise.all([
+    const [stockRes, priceRes, valRes, finRes, techRes, week52Res] = await Promise.all([
       supabase.from('stocks').select('*').eq('stock_code', code).single(),
       supabase.from('price_daily').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
       supabase.from('valuation').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
       supabase.from('financials').select('*').eq('stock_code', code).eq('fiscal_quarter', 'FY').order('fiscal_year', { ascending: false }).limit(3),
       supabase.from('technical').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
+      supabase.from('price_daily').select('high, low').eq('stock_code', code).order('trade_date', { ascending: false }).limit(252),
     ]);
 
     if (!stockRes.data) {
@@ -59,8 +87,14 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
     const latestFin = financials[0] ?? null;
     const prevFin = financials[1] ?? null;
 
+    // 52주 고/저 계산 (최근 252거래일 ≈ 52주)
+    const week52 = computeWeek52(week52Res.data as Array<{ high: number | null; low: number | null }> | null);
+
     // 2. 업종 평균 계산 (동종업계 비교용 — 항상 KRX 업종 기준)
     const sectorAvg = await fetchSectorAvg(stock.sector);
+
+    // 2-1. 경쟁사 개별 비교 (업종 기준 점수 상위, 선택 종목 보장)
+    const competitors = await fetchSectorCompetitors(stock.sector, code, sectorAvg.per);
 
     // 3. 모드별 평균 PER 계산 (종합점수용)
     let scoreAvgPer: number | null = sectorAvg.per;
@@ -83,11 +117,21 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
       prevPbr: null,
     });
 
-    setData({ stock, price, valuation, financials, technical, score, sectorAvg });
+    setData({ stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors });
     setLoading(false);
   }
 
   return { data, loading };
+}
+
+function computeWeek52(
+  rows: Array<{ high: number | null; low: number | null }> | null
+): Week52Range | null {
+  if (!rows || rows.length === 0) return null;
+  const highs = rows.map((r) => r.high).filter((v): v is number => v !== null && v > 0);
+  const lows = rows.map((r) => r.low).filter((v): v is number => v !== null && v > 0);
+  if (highs.length === 0 || lows.length === 0) return null;
+  return { high: Math.max(...highs), low: Math.min(...lows) };
 }
 
 async function fetchSectorAvg(sector: string | null): Promise<SectorAvg> {
@@ -224,4 +268,166 @@ async function fetchSectorFinancials(codes: string[]): Promise<Array<{ roe: numb
     }
   }
   return result;
+}
+
+// ── 경쟁사 개별 비교 ──
+
+/** 업종 내 점수 상위 경쟁사 5개 (선택 종목 보장) + 업종 전체 평균 */
+async function fetchSectorCompetitors(
+  sector: string | null,
+  currentStockCode: string,
+  sectorAvgPer: number | null
+): Promise<CompetitorsData | null> {
+  if (!sector) return null;
+
+  // 1. 같은 업종 종목 코드 + 이름 조회
+  const { data: sectorStocks } = await supabase
+    .from('stocks')
+    .select('stock_code, stock_name')
+    .eq('sector', sector)
+    .eq('is_active', true);
+
+  if (!sectorStocks || sectorStocks.length === 0) return null;
+
+  const codes = sectorStocks.map((s) => s.stock_code);
+
+  // 2. 밸류 + 재무 최신본 가져오기 (종목별 매핑)
+  const [valMap, finMap] = await Promise.all([
+    fetchLatestValuationByStock(codes),
+    fetchLatestFinancialsByStock(codes),
+  ]);
+
+  type ItemWithScore = CompetitorItem & { _score: number };
+
+  // 3. 각 종목 데이터 조립 + 간이 점수 계산 (품질50 + 밸류에이션 20 = 70)
+  const allItems: ItemWithScore[] = sectorStocks.map((s) => {
+    const val = valMap.get(s.stock_code);
+    const fin = finMap.get(s.stock_code);
+    const roe = fin?.roe ?? null;
+    const roa = fin?.roa ?? null;
+    const operating_margin = fin?.operating_margin ?? null;
+    const per = val?.per ?? null;
+    const pbr = val?.pbr ?? null;
+
+    const quality =
+      Math.min(Math.max(roe ?? 0, 0), 20) +
+      Math.min(Math.max((roa ?? 0) * 1.5, 0), 15) +
+      Math.min(Math.max(operating_margin ?? 0, 0), 15);
+
+    const pbrScore = pbr !== null && pbr > 0 ? Math.max(10 - pbr * 5, 0) : 0;
+    const perScore =
+      per !== null && per > 0 && sectorAvgPer !== null && sectorAvgPer > 0
+        ? Math.max(10 - (per / sectorAvgPer) * 5, 0)
+        : 0;
+    const valuationScore = pbrScore + perScore;
+
+    return {
+      stock_code: s.stock_code,
+      stock_name: s.stock_name,
+      roe,
+      per,
+      pbr,
+      operating_margin,
+      isSelf: s.stock_code === currentStockCode,
+      _score: quality + valuationScore,
+    };
+  });
+
+  // 4. 점수 내림차순 정렬
+  allItems.sort((a, b) => b._score - a._score);
+
+  // 5. 상위 5개 + 선택 종목 보장
+  const top5 = allItems.slice(0, 5);
+  const hasSelf = top5.some((it) => it.isSelf);
+
+  let selected: ItemWithScore[];
+  if (hasSelf) {
+    selected = top5;
+  } else {
+    const self = allItems.find((it) => it.isSelf);
+    selected = self ? [...top5.slice(0, 4), self] : top5;
+  }
+
+  const items: CompetitorItem[] = selected.map((it) => ({
+    stock_code: it.stock_code,
+    stock_name: it.stock_name,
+    roe: it.roe,
+    per: it.per,
+    pbr: it.pbr,
+    operating_margin: it.operating_margin,
+    isSelf: it.isSelf,
+  }));
+
+  // 6. 업종 전체 평균 (이상치 제외)
+  const validRoes = allItems.map((it) => it.roe).filter((v): v is number => v !== null && v > -100 && v < 100);
+  const validPers = allItems.map((it) => it.per).filter((v): v is number => v !== null && v > 0 && v <= 100);
+  const validPbrs = allItems.map((it) => it.pbr).filter((v): v is number => v !== null && v > 0 && v <= 10);
+  const validOms = allItems.map((it) => it.operating_margin).filter((v): v is number => v !== null && v > -100 && v < 100);
+
+  const mean = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+  const round1 = (n: number | null) => (n !== null ? Math.round(n * 10) / 10 : null);
+  const round2 = (n: number | null) => (n !== null ? Math.round(n * 100) / 100 : null);
+
+  return {
+    items,
+    sectorAverage: {
+      roe: round1(mean(validRoes)),
+      per: round1(mean(validPers)),
+      pbr: round2(mean(validPbrs)),
+      operating_margin: round1(mean(validOms)),
+    },
+  };
+}
+
+async function fetchLatestValuationByStock(
+  codes: string[]
+): Promise<Map<string, { per: number | null; pbr: number | null }>> {
+  const map = new Map<string, { per: number | null; pbr: number | null }>();
+  const batchSize = 500;
+  for (let i = 0; i < codes.length; i += batchSize) {
+    const batch = codes.slice(i, i + batchSize);
+    const { data } = await supabase
+      .from('valuation')
+      .select('stock_code, per, pbr, trade_date')
+      .in('stock_code', batch)
+      .order('trade_date', { ascending: false });
+
+    if (data) {
+      for (const row of data) {
+        if (!map.has(row.stock_code)) {
+          map.set(row.stock_code, { per: row.per, pbr: row.pbr });
+        }
+      }
+    }
+  }
+  return map;
+}
+
+async function fetchLatestFinancialsByStock(
+  codes: string[]
+): Promise<Map<string, { roe: number | null; roa: number | null; operating_margin: number | null }>> {
+  const map = new Map<string, { roe: number | null; roa: number | null; operating_margin: number | null }>();
+  const batchSize = 500;
+  for (let i = 0; i < codes.length; i += batchSize) {
+    const batch = codes.slice(i, i + batchSize);
+    const { data } = await supabase
+      .from('financials')
+      .select('stock_code, roe, roa, operating_margin, fiscal_year')
+      .in('stock_code', batch)
+      .eq('fiscal_quarter', 'FY')
+      .order('fiscal_year', { ascending: false });
+
+    if (data) {
+      for (const row of data) {
+        if (!map.has(row.stock_code)) {
+          map.set(row.stock_code, {
+            roe: row.roe,
+            roa: row.roa,
+            operating_margin: row.operating_margin,
+          });
+        }
+      }
+    }
+  }
+  return map;
 }

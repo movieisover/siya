@@ -102,7 +102,7 @@
 | 팀 리뷰 | ✅ 완료 | 기획서 v4 검토 완료, 개발 진행 확정 |
 
 ### Phase 2: 데이터 모델 설계 ✅ 완료
-- [x] DB 스키마 설계 (11개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist, disclosures)
+- [x] DB 스키마 설계 (12개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist, disclosures, dividend_schedule)
 - [x] 테마-종목 매핑 방식 확정 (반자동: 업종코드 1차 분류 → 수동 검수) → 실제 매핑 작업은 Phase 3 초반에 실행
 - [x] 데이터 수집 파이프라인 설계 (서버에서 수집 + 일일 자동 갱신)
 - [x] 업데이트 주기 및 방식 결정 (앱 실행 시 자동 + 수동 버튼)
@@ -145,6 +145,7 @@
   - [x] 기관/외국인 수급 (investor_trading) — 한국투자증권(KIS) API로 수집 완료
   - [x] 기술지표 (technical) — RSI/MACD 자체 계산 2,674개 종목
   - [x] 공시목록 (disclosures) — DART API, 1시간 간격 수집 (GitHub Actions)
+  - [x] 배당 일정 (dividend_schedule) — KIS API, 날짜별 일괄 조회, 주 1회 수집 (GitHub Actions)
 - [x] Tauri + React 프로젝트 셋업 — `app/` 하위에 생성 완료
 - [x] 로그인 화면 (Supabase Auth) — 이메일/비밀번호 가입+로그인, 이메일 인증 OFF
 - [x] 3단 레이아웃 기본 구조 (Header, LeftPanel, CenterPanel, RightPanel)
@@ -165,7 +166,7 @@
 ### 진행 예정 (미루둔 작업)
 - [x] 한국투자증권 오픈API 연동 — 수급 수집 + 캔들차트 + 시세 교체 완료 (2026-04-10~11)
 - [x] 실시간 현재가 조회 시도 → Edge Function 해외 IP라 KIS API 차단 확인 → 기능 제거 (2026-04-15)
-- [ ] 한투 API 확장 — 배당 데이터 수집 구현 완료, 초기 수동 실행 필요 (2026-04-16 예정)
+- [x] 한투 API 확장 — 배당 DPS/수익률 수집 완료 + 배당 일정(dividend_schedule) 수집 완료 (2026-04-16)
 - [ ] 상용화 시 실시간 검토 — 한국 서버 프록시 필요 (⬇️ 실시간 데이터 로드맵 참고)
 - [ ] Vercel 커스텀 도메인 연결 (필요 시)
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
@@ -386,6 +387,19 @@
   - 초기 1회 수동 실행 필요 (전 종목 ~18분)
 - **토큰 TZ 비교 버그 수정**: kis_api.py 파일 캐시에서 aware/naive datetime 비교 오류 수정
 
+### 2026-04-16: 배당 일정(dividend_schedule) 수집 구현 완료
+- **엔드포인트**: 기존 KIS API `ksdinfo/dividend` (HHKDB669102C0) 재활용
+  - 배당 DPS/수익률(`collect_dividends_kis.py`)과 동일 엔드포인트, 날짜 필드만 추가 추출
+- **수집 방식**: 날짜별 일괄 조회 (SHT_CD 빈값, 하루씩 순회) → 전 종목 순회 불필요
+  - 100건/일 제한이지만 실제 하루 최대 ~47건으로 문제 없음
+  - 초기 수집 3년(1,202일) = ~5분, 주간 갱신 7일 = ~3초
+- **DB 테이블**: `dividend_schedule` (stock_code, record_date, payment_date, dividend_per_share, dividend_type, stock_kind)
+  - 배당락일(ex_dividend_date)은 API 미제공 → 프론트에서 "기준일 T-1 영업일" 안내로 대체
+  - UNIQUE(stock_code, record_date, dividend_type)
+- **스크립트**: `collect_dividend_schedule.py` — `--days N` / `--years N` / `--from` `--to` / `--stock` 옵션
+- **초기 수집 결과**: 2023-01-01~2026-04-16, 5,710건, 에러 0건
+- **GitHub Actions**: 기존 `collect-dividends.yml`에 Step 추가 (매주 월요일 KST 17:00, 최근 7일분)
+
 ### 2026-04-02: 관심종목 기능 구현 완료
 - **구현 내용**:
   - `hooks/useWatchlist.ts`: watchlist 테이블 CRUD (추가/삭제/메모수정/관심여부확인/메모조회)
@@ -533,7 +547,7 @@ stock-analyzer/
 ├── src/
 │   ├── core/              # 핵심 로직
 │   └── data/
-│       └── collectors/    # 데이터 수집 모듈 (Python) — kis_api.py, collect_investor_kis.py, daily_update.py 등
+│       └── collectors/    # 데이터 수집 모듈 (Python) — kis_api.py, collect_investor_kis.py, collect_dividend_schedule.py, daily_update.py 등
 ├── scripts/
 │   └── exploration/       # 탐색용 스크립트
 └── tests/                 # 테스트
@@ -606,7 +620,7 @@ stock-analyzer/
 - **스케줄**: 매일 장 마감 후 (KST 16:30 = UTC 07:30)
 - **수집 항목**:
   - 매일 16:00: 일별 시세(KIS API), PER/PBR(자체계산), RSI/MACD(자체계산), 기관/외국인 수급(KIS API)
-  - 매주 월요일 17:00: 배당 데이터(KIS API ksdinfo/dividend)
+  - 매주 월요일 17:00: 배당 DPS/수익률 + 배당 일정(KIS API ksdinfo/dividend)
   - 매시 정각 (09~18시): DART 공시 목록
   - 월 1회: 종목 마스터 (신규 상장/상폐 반영)
   - 연 1회: 재무제표 (4~5월 사업보고서 공시 후)

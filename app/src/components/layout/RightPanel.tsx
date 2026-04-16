@@ -3,7 +3,7 @@ import { useStockDetail } from '../../hooks/useStockDetail';
 import { askSiyaAi, type AiMessage } from '../../lib/ai';
 import type { Financials, StockScore } from '../../types/stock';
 import type { AppMode } from '../../App';
-import type { StockDetailData } from '../../hooks/useStockDetail';
+import type { StockDetailData, CompetitorItem, CompetitorsData } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 
@@ -51,7 +51,7 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
     );
   }
 
-  const { stock, price, valuation, financials, technical, score, sectorAvg } = data;
+  const { stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors } = data;
   const latestFin = financials[0];
 
   return (
@@ -149,6 +149,11 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
                 </div>
               )}
             </div>
+          )}
+
+          {/* 52주 고/저 밴드 */}
+          {week52 && price?.close && (
+            <Week52Band currentPrice={price.close} high={week52.high} low={week52.low} />
           )}
 
           {/* 종합 점수 */}
@@ -335,6 +340,11 @@ KRX 공식 업종 분류 기준 (테마와는 별개)
               </div>
             </div>
           )}
+
+          {/* 경쟁사 개별 비교 */}
+          {competitors && competitors.items.length > 0 && (
+            <CompetitorsSection data={competitors} />
+          )}
         </div>
       ) : activeTab === 'ai' ? (
         <AiTab stockDetail={data} stockName={stock.stock_name} />
@@ -402,6 +412,137 @@ function ScoreBar({ label, value, max, color, tooltip }: { label: string; value:
       </div>
     </div>
   );
+}
+
+// ── 52주 고/저 밴드 ──
+
+function Week52Band({ currentPrice, high, low }: { currentPrice: number; high: number; low: number }) {
+  if (high <= low) return null;
+
+  const rawPercent = ((currentPrice - low) / (high - low)) * 100;
+  const percent = Math.max(0, Math.min(100, rawPercent));
+
+  let positionLabel: string;
+  let positionClass: string;
+  if (percent >= 80) {
+    positionLabel = '고점권';
+    positionClass = 'week52-high-zone';
+  } else if (percent <= 20) {
+    positionLabel = '저점권';
+    positionClass = 'week52-low-zone';
+  } else {
+    positionLabel = '중간권';
+    positionClass = 'week52-mid-zone';
+  }
+
+  const fromLowPct = (((currentPrice - low) / low) * 100);
+  const fromHighPct = (((currentPrice - high) / high) * 100);
+
+  return (
+    <div className="detail-section week52-section">
+      <div className="week52-header">
+        <span className="week52-title">
+          52주 범위
+          <Tooltip text={`최근 52주(약 1년) 동안의 최고가/최저가 사이에
+현재가가 어느 위치에 있는지 보여줍니다.
+
+저점권(0~20%): 역사적 저점 근처 → 저평가 가능성 (물론 밀리고 있는 이유 확인 필요)
+중간권(20~80%): 보통 구간
+고점권(80~100%): 고점 근처 → 고평가 주의
+
+데이터: 최근 252거래일의 high/low 기준, 매일 16:00 자동 갱신`} />
+        </span>
+        <span className={`week52-position ${positionClass}`}>
+          현재 {percent.toFixed(0)}% · {positionLabel}
+        </span>
+      </div>
+      <div className="week52-track">
+        <div className="week52-marker" style={{ left: `${percent}%` }} />
+      </div>
+      <div className="week52-range-row">
+        <span className="week52-range-item">
+          <span className="week52-range-label">저</span>
+          <span className="week52-range-value">{low.toLocaleString()}원</span>
+          <span className="week52-range-diff">+{fromLowPct.toFixed(1)}%</span>
+        </span>
+        <span className="week52-range-item week52-range-item-right">
+          <span className="week52-range-diff week52-range-diff-neg">{fromHighPct.toFixed(1)}%</span>
+          <span className="week52-range-value">{high.toLocaleString()}원</span>
+          <span className="week52-range-label">고</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── 경쟁사 개별 비교 ──
+
+function CompetitorsSection({ data }: { data: CompetitorsData }) {
+  const avg = data.sectorAverage;
+  const hasAvg = avg.roe !== null || avg.per !== null || avg.pbr !== null || avg.operating_margin !== null;
+
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">
+        경쟁사 개별 비교
+        <Tooltip text={`같은 KRX 업종 내 상위 기업들의 원본 지표를
+나란히 비교합니다.
+
+선정 기준: 업종 내 간이 점수 상위
+(품질 50 + 밸류에이션 20 = 70점 기준)
+
+★ = 현재 선택 종목 (상위 5위 밖이면 마지막 행에 추가)
+마지막 행 = 업종 전체 평균 (상위 5개만이 아닌 전체)
+
+점수는 표시하지 않고 원본 수치만 표시해
+상단 종합점수와 기준이 달라도 혼란 없습니다.`} />
+      </div>
+      <div className="competitors-table">
+        <div className="competitors-row competitors-header">
+          <span className="comp-col comp-col-name">종목</span>
+          <span className="comp-col comp-col-metric">ROE</span>
+          <span className="comp-col comp-col-metric">PER</span>
+          <span className="comp-col comp-col-metric">PBR</span>
+          <span className="comp-col comp-col-metric">영업이익률</span>
+        </div>
+        {data.items.map((item) => (
+          <CompetitorRow key={item.stock_code} item={item} />
+        ))}
+        {hasAvg && (
+          <div className="competitors-row competitors-avg-row">
+            <span className="comp-col comp-col-name">업종 평균</span>
+            <span className="comp-col comp-col-metric">{formatPct(avg.roe)}</span>
+            <span className="comp-col comp-col-metric">{formatNum(avg.per)}</span>
+            <span className="comp-col comp-col-metric">{formatNum(avg.pbr)}</span>
+            <span className="comp-col comp-col-metric">{formatPct(avg.operating_margin)}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompetitorRow({ item }: { item: CompetitorItem }) {
+  return (
+    <div className={`competitors-row ${item.isSelf ? 'competitors-row-self' : ''}`}>
+      <span className="comp-col comp-col-name" title={item.stock_name}>
+        {item.isSelf && <span className="comp-self-mark">★</span>}
+        {item.stock_name}
+      </span>
+      <span className="comp-col comp-col-metric">{formatPct(item.roe)}</span>
+      <span className="comp-col comp-col-metric">{formatNum(item.per)}</span>
+      <span className="comp-col comp-col-metric">{formatNum(item.pbr)}</span>
+      <span className="comp-col comp-col-metric">{formatPct(item.operating_margin)}</span>
+    </div>
+  );
+}
+
+function formatPct(v: number | null): string {
+  return v !== null ? `${v.toFixed(1)}%` : '-';
+}
+
+function formatNum(v: number | null): string {
+  return v !== null ? v.toFixed(2) : '-';
 }
 
 // ── 핵심 지표 카드 ──
