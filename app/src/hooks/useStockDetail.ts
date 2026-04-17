@@ -36,16 +36,25 @@ export interface CompetitorsData {
   };
 }
 
+export interface DividendItem {
+  record_date: string;
+  payment_date: string | null;
+  dividend_per_share: number;
+  dividend_type: string | null;
+  stock_kind: string;
+}
+
 export interface StockDetailData {
   stock: Stock;
   price: PriceDaily | null;
   valuation: Valuation | null;
-  financials: Financials[];   // 최근 3년 (FY)
+  financials: Financials[];
   technical: Technical | null;
   score: StockScore;
   sectorAvg: SectorAvg;
   week52: Week52Range | null;
   competitors: CompetitorsData | null;
+  dividends: DividendItem[];
 }
 
 export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId?: number | null) {
@@ -64,13 +73,14 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
     setLoading(true);
 
     // 1. 기본 데이터 병렬 fetch
-    const [stockRes, priceRes, valRes, finRes, techRes, week52Res] = await Promise.all([
+    const [stockRes, priceRes, valRes, finRes, techRes, week52Res, divRes] = await Promise.all([
       supabase.from('stocks').select('*').eq('stock_code', code).single(),
       supabase.from('price_daily').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
       supabase.from('valuation').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
       supabase.from('financials').select('*').eq('stock_code', code).eq('fiscal_quarter', 'FY').order('fiscal_year', { ascending: false }).limit(3),
       supabase.from('technical').select('*').eq('stock_code', code).order('trade_date', { ascending: false }).limit(1).single(),
       supabase.from('price_daily').select('high, low').eq('stock_code', code).order('trade_date', { ascending: false }).limit(252),
+      supabase.from('dividend_schedule').select('record_date, payment_date, dividend_per_share, dividend_type, stock_kind').eq('stock_code', code).order('record_date', { ascending: false }).limit(12),
     ]);
 
     if (!stockRes.data) {
@@ -89,6 +99,9 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
 
     // 52주 고/저 계산 (최근 252거래일 ≈ 52주)
     const week52 = computeWeek52(week52Res.data as Array<{ high: number | null; low: number | null }> | null);
+
+    // 배당 일정 (최근 12건, 내림차순)
+    const dividends = (divRes.data as DividendItem[] | null) ?? [];
 
     // 2. 업종 평균 계산 (동종업계 비교용 — 항상 KRX 업종 기준)
     const sectorAvg = await fetchSectorAvg(stock.sector);
@@ -117,7 +130,7 @@ export function useStockDetail(stockCode: string | null, mode?: AppMode, themeId
       prevPbr: null,
     });
 
-    setData({ stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors });
+    setData({ stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors, dividends });
     setLoading(false);
   }
 

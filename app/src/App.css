@@ -1068,6 +1068,126 @@
   font-size: 11px;
 }
 
+/* ── 배당 일정 ── */
+.dividend-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border-radius: 8px;
+}
+
+.dividend-upcoming {
+  background: rgba(74, 158, 255, 0.06);
+  border: 1px solid rgba(74, 158, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.dividend-upcoming-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 6px;
+}
+
+.dividend-upcoming-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.dividend-upcoming-dps {
+  font-weight: 700;
+  color: var(--color-green);
+}
+
+.dividend-upcoming-pending {
+  font-weight: 600;
+  color: var(--color-yellow);
+  font-size: 12px;
+}
+
+.dividend-upcoming-pay {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.dividend-upcoming-type {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.dividend-history {
+  margin-top: 4px;
+}
+
+.dividend-history-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.dividend-table {
+  background: var(--color-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.dividend-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dividend-row:last-child {
+  border-bottom: none;
+}
+
+.dividend-header-row {
+  background: var(--color-surface);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.div-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.div-col-date {
+  flex: 1.2;
+  text-align: left;
+}
+
+.div-col-type {
+  width: 48px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.div-col-dps {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.div-col-pay {
+  flex: 1.2;
+  text-align: right;
+}
+
 /* ── 시야 AI 탭 ── */
 .ai-tab {
   display: flex;

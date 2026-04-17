@@ -3,7 +3,7 @@ import { useStockDetail } from '../../hooks/useStockDetail';
 import { askSiyaAi, type AiMessage } from '../../lib/ai';
 import type { Financials, StockScore } from '../../types/stock';
 import type { AppMode } from '../../App';
-import type { StockDetailData, CompetitorItem, CompetitorsData } from '../../hooks/useStockDetail';
+import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 
@@ -51,7 +51,7 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
     );
   }
 
-  const { stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors } = data;
+  const { stock, price, valuation, financials, technical, score, sectorAvg, week52, competitors, dividends } = data;
   const latestFin = financials[0];
 
   return (
@@ -345,6 +345,9 @@ KRX 공식 업종 분류 기준 (테마와는 별개)
           {competitors && competitors.items.length > 0 && (
             <CompetitorsSection data={competitors} />
           )}
+
+          {/* 배당 일정 */}
+          <DividendSection dividends={dividends} />
         </div>
       ) : activeTab === 'ai' ? (
         <AiTab stockDetail={data} stockName={stock.stock_name} />
@@ -543,6 +546,103 @@ function formatPct(v: number | null): string {
 
 function formatNum(v: number | null): string {
   return v !== null ? v.toFixed(2) : '-';
+}
+
+// ── 배당 일정 ──
+
+function DividendSection({ dividends }: { dividends: DividendItem[] }) {
+  if (dividends.length === 0) {
+    return (
+      <div className="detail-section">
+        <div className="detail-section-title">
+          배당 일정
+          <Tooltip text={`최근 3년간의 배당 기록이 없는 종목입니다.
+비배당주이거나 데이터 미수집 상태일 수 있습니다.`} />
+        </div>
+        <div className="dividend-empty">배당 기록 없음</div>
+      </div>
+    );
+  }
+
+  // 다음 예정 배당 (미래 날짜 또는 DPS 0인 것)
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = dividends.find(
+    (d) => d.record_date >= today || (d.dividend_per_share === 0 && !d.payment_date)
+  );
+
+  // 과거 배당 이력 (금액 확정된 것만, 최대 6건)
+  const history = dividends
+    .filter((d) => d.dividend_per_share > 0)
+    .slice(0, 6);
+
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">
+        배당 일정
+        <Tooltip text={`최근 3년간의 배당 기록과 예정 일정입니다.
+
+기준일: 이 날까지 주식을 보유해야 배당을 받을 수 있습니다
+지급일: 실제 배당금이 입금되는 날
+DPS: 주당 배당금 (원)
+
+⚠️ 배당을 받으려면 배당기준일 직전 거래일까지 매수해야 합니다.
+(기준일 당일 매수는 배당 대상이 아닙니다)
+
+데이터: KIS API (ksdinfo/dividend), 매주 월 17:00 자동 갱신`} />
+      </div>
+
+      {/* 다음 예정 배당 카드 */}
+      {upcoming && (
+        <div className="dividend-upcoming">
+          <div className="dividend-upcoming-label">
+            {upcoming.dividend_per_share === 0 ? '📅 다음 배당 예정' : '📅 다음 배당'}
+          </div>
+          <div className="dividend-upcoming-detail">
+            <span>기준일 {formatDivDate(upcoming.record_date)}</span>
+            {upcoming.dividend_per_share > 0 ? (
+              <span className="dividend-upcoming-dps">{upcoming.dividend_per_share.toLocaleString()}원/주</span>
+            ) : (
+              <span className="dividend-upcoming-pending">금액 미확정</span>
+            )}
+          </div>
+          {upcoming.payment_date && (
+            <div className="dividend-upcoming-pay">지급일 {formatDivDate(upcoming.payment_date)}</div>
+          )}
+          <div className="dividend-upcoming-type">
+            {upcoming.dividend_type || '-'} · {upcoming.stock_kind}
+          </div>
+        </div>
+      )}
+
+      {/* 과거 배당 이력 테이블 */}
+      {history.length > 0 && (
+        <div className="dividend-history">
+          <div className="dividend-history-title">최근 배당 이력</div>
+          <div className="dividend-table">
+            <div className="dividend-row dividend-header-row">
+              <span className="div-col div-col-date">기준일</span>
+              <span className="div-col div-col-type">종류</span>
+              <span className="div-col div-col-dps">DPS</span>
+              <span className="div-col div-col-pay">지급일</span>
+            </div>
+            {history.map((d, i) => (
+              <div key={i} className="dividend-row">
+                <span className="div-col div-col-date">{formatDivDate(d.record_date)}</span>
+                <span className="div-col div-col-type">{d.dividend_type || '-'}</span>
+                <span className="div-col div-col-dps">{d.dividend_per_share.toLocaleString()}원</span>
+                <span className="div-col div-col-pay">{d.payment_date ? formatDivDate(d.payment_date) : '-'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDivDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ── 핵심 지표 카드 ──

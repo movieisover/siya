@@ -162,6 +162,37 @@ export default function HelpPage({ onClose }: HelpPageProps) {
             <p className="help-note">* 이 두 분류는 별개입니다. 삼성전자는 업종은 "통신장비 제조업"이지만 테마는 "AI/반도체"에 속합니다.</p>
           </section>
 
+          {/* 배당 일정 */}
+          <section className="help-section">
+            <h3>💰 배당 일정</h3>
+            <p>종목 상세 하단에 해당 종목의 <strong>배당 예정 일정</strong>과 <strong>최근 배당 이력</strong>을 보여줍니다.</p>
+
+            <div className="help-subsection">
+              <h4>표시 항목</h4>
+              <table className="help-table">
+                <thead><tr><th>항목</th><th>의미</th></tr></thead>
+                <tbody>
+                  <tr><td>기준일</td><td>이 날까지 주식을 보유해야 배당을 받을 수 있습니다</td></tr>
+                  <tr><td>지급일</td><td>실제 배당금이 계좌에 입금되는 날</td></tr>
+                  <tr><td>DPS (주당배당금)</td><td>1주당 받는 배당금 (원)</td></tr>
+                  <tr><td>종류</td><td>결산(연간), 분기(분기별), 중간(반기), 특별 등</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="help-subsection">
+              <h4>다음 예정 배당 카드</h4>
+              <p>미래 기준일이거나 금액 미확정(배당 예정)인 건이 있으면 파란 카드로 표시됩니다.</p>
+              <p>"금액 미확정"은 배당 기준일은 정해졌지만 아직 배당금이 결정되지 않은 상태입니다.</p>
+            </div>
+
+            <div className="help-subsection">
+              <h4>주의사항</h4>
+              <p>배당을 받으려면 <strong>배당기준일 직전 거래일까지 매수</strong>해야 합니다 (기준일 당일 매수는 배당 대상이 아닙니다).</p>
+              <p>배당 기록이 없는 종목은 비배당주이거나 최근 3년간 배당 실적이 없는 것입니다.</p>
+            </div>
+          </section>
+
           {/* 투자 용어 사전 */}
           <section className="help-section">
             <h3>📖 투자 용어 사전</h3>
@@ -252,6 +283,12 @@ export default function HelpPage({ onClose }: HelpPageProps) {
                   <td>수동 등록</td>
                   <td><span className="data-badge data-badge-manual">초기 설정</span></td>
                   <td>테마 목록</td>
+                </tr>
+                <tr>
+                  <td>배당 일정</td>
+                  <td>한국투자증권 API</td>
+                  <td><span className="data-badge data-badge-weekly">매주 월 17:00 자동</span></td>
+                  <td>배당 일정 섹션</td>
                 </tr>
                 <tr>
                   <td>공시 목록</td>
