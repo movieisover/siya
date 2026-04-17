@@ -97,19 +97,20 @@ export default function HelpPage({ onClose }: HelpPageProps) {
 
             <div className="help-subsection">
               <h4>타이밍 (🟢 / 🟡 / 🔴) — "지금 들어가도 괜찮은 시점인가?"</h4>
-              <p>테마가 강하더라도 이미 과열 상태면 진입이 위험합니다. 타이밍 지표는 RSI(과열도)와 MACD(추세 방향)를 조합해 "지금이 적절한 진입 시점인지" 판단합니다.</p>
+              <p>테마가 강하더라도 이미 과열 상태면 진입이 위험합니다. RSI(과열도)와 MACD(추세 방향)를 조합해 판단합니다.</p>
               <table className="help-table">
                 <thead><tr><th>지표</th><th>무엇을 측정하나</th><th>기준</th></tr></thead>
                 <tbody>
                   <tr><td>RSI (14일)</td><td>주가가 너무 올랐는지(과매수) / 너무 떨어졌는지(과매도)</td><td>70↑ 과열 / 30~70 중립 / 30↓ 저점</td></tr>
-                  <tr><td>GC (골든크로스)</td><td>테마 내 종목 중 상승 전환 신호가 난 비율</td><td>60%↑ 상승추세 / 40~60% 혼조 / 40%↓ 하락</td></tr>
+                  <tr><td>MACD</td><td>추세가 상승으로 전환하는지 하락으로 전환하는지</td><td>상승 = 상승 추세 / 하락 = 하락 추세</td></tr>
                 </tbody>
               </table>
               <div className="help-grades">
                 <span className="help-grade help-grade-green">🟢 진입 적기: 과열 아님 + 상승 추세</span>
-                <span className="help-grade help-grade-red">🔴 과열주의: 과매수이거나 하락 추세</span>
-                <span className="help-grade help-grade-yellow">🟡 관망: 추세 불명확, 지켜보기</span>
+                <span className="help-grade help-grade-yellow">🟡 관망: 과열은 아니지만 추세가 안 좋음 — 전환 기다리기</span>
+                <span className="help-grade help-grade-red">🔴 과열 주의: 과매수 구간 — 조심</span>
               </div>
+              <p className="help-note">* 이 등급은 테마 카드와 종목 상세 둘 다 표시됩니다. 데이터가 부족한 종목은 ⚪ 판단 불가로 표시됩니다.</p>
             </div>
 
             <div className="help-subsection">
@@ -205,7 +206,7 @@ export default function HelpPage({ onClose }: HelpPageProps) {
                 <tr><td><strong>ROA</strong><br/><span style={{fontSize: '11px', color: 'var(--color-text-secondary)'}}>총자산이익률</span></td><td>전체 자산(자기돈+빌린돈)으로 얼마나 버는지</td><td>ROA 8% = 자산 100원 → 연 8원 이익</td></tr>
                 <tr><td><strong>부채비율</strong><br/><span style={{fontSize: '11px', color: 'var(--color-text-secondary)'}}>Debt/Equity</span></td><td>빚이 자기 돈의 몇 배인지. 낮을수록 안전</td><td>100% = 빚과 자기 돈이 같음</td></tr>
                 <tr><td><strong>RSI</strong><br/><span style={{fontSize: '11px', color: 'var(--color-text-secondary)'}}>상대강도지수</span></td><td>최근 주가가 너무 올랐는지(70↑) 너무 떨어졌는지(30↓)</td><td>RSI 25 = 과매도, 반등 가능성</td></tr>
-                <tr><td><strong>MACD</strong><br/><span style={{fontSize: '11px', color: 'var(--color-text-secondary)'}}>이동평균수렴확산</span></td><td>추세가 상승으로 전환하는지(골든크로스) 하락으로 전환하는지</td><td>골든크로스 = 상승 전환 신호</td></tr>
+                <tr><td><strong>MACD</strong><br/><span style={{fontSize: '11px', color: 'var(--color-text-secondary)'}}>이동평균수렴확산</span></td><td>추세가 상승으로 전환하는지 하락으로 전환하는지 판단</td><td>MACD 상승 = 상승 전환 신호</td></tr>
               </tbody>
             </table>
           </section>

@@ -229,17 +229,20 @@ DPS(주당배당금): 1주당 받는 배당금 (원)
             <div className="detail-section">
               <div className="detail-section-title">
                 타이밍 지표
-                <Tooltip text={`단기 매매 타이밍 판단용 보조 지표입니다.
+                <Tooltip text={`RSI와 MACD를 조합해 지금 진입해도 되는 타이밍인지 판단합니다.
 
-RSI: 주가가 너무 많이 올랐는지/떨어졌는지 측정
-70↑ 과열(조심) / 30~70 중립 / 30↓ 저점(기회)
+종합 등급:
+🟢 진입 적기: 과열 아님 + 상승 추세
+🟡 관망: 과열은 아니지만 추세가 안 좋음 — 전환 기다리기
+🔴 과열 주의: 과매수 구간 — 조심
+⚪ 판단 불가: 데이터 부족
 
-MACD: 추세의 방향과 전환 시점 판단
-MACD > Signal → 상승 전환 신호 (🟢)
-MACD < Signal → 하락 전환 신호 (🔴)
+RSI: 주가 과열도 (70↑ 과열 / 30↓ 저점)
+MACD: 상승 = 상승 추세 / 하락 = 하락 추세
 
 데이터: 자체 계산, 매일 16:00 자동 갱신`} />
               </div>
+              <TimingGradeBadge rsi={technical.rsi_14} macd={technical.macd} signal={technical.macd_signal} />
               <div className="timing-grid">
                 <div className="timing-card">
                   <div className="timing-label">RSI (14일)</div>
@@ -255,17 +258,6 @@ MACD < Signal → 하락 전환 신호 (🔴)
                   </div>
                   <div className="timing-status">
                     {getMacdStatus(technical.macd, technical.macd_signal)}
-                  </div>
-                </div>
-                <div className="timing-card">
-                  <div className="timing-label">Signal</div>
-                  <div className="timing-value">
-                    {technical.macd_signal?.toFixed(2) ?? '-'}
-                  </div>
-                  <div className="timing-status">
-                    {technical.macd !== null && technical.macd_signal !== null
-                      ? (technical.macd > technical.macd_signal ? '🟢 골든크로스' : '🔴 데드크로스')
-                      : '-'}
                   </div>
                 </div>
               </div>
@@ -679,6 +671,42 @@ function getMetricColor(
 }
 
 // ── RSI/MACD 헬퍼 ──
+
+function TimingGradeBadge({ rsi, macd, signal }: { rsi: number | null; macd: number | null; signal: number | null }) {
+  if (rsi === null || macd === null || signal === null) {
+    return (
+      <div className="timing-grade-badge timing-grade-gray">
+        ⚪ 판단 불가 — 데이터 부족
+      </div>
+    );
+  }
+
+  const isGolden = macd > signal;
+  const isOverheat = rsi >= 70;
+  const isOversold = rsi <= 30;
+
+  if (isOverheat) {
+    return (
+      <div className="timing-grade-badge timing-grade-red">
+        🔴 과열 주의 — RSI 과매수{isGolden ? '' : ' + MACD 하락'}
+      </div>
+    );
+  }
+
+  if (isGolden) {
+    return (
+      <div className="timing-grade-badge timing-grade-green">
+        🟢 진입 적기 — {isOversold ? 'RSI 저점 + ' : 'RSI 중립 + '}MACD 상승
+      </div>
+    );
+  }
+
+  return (
+    <div className="timing-grade-badge timing-grade-yellow">
+      🟡 관망 — {isOversold ? 'RSI 저점이나 ' : ''}MACD 하락 중, 전환 대기
+    </div>
+  );
+}
 
 function formatTradeDate(dateStr: string): string {
   const date = new Date(dateStr);

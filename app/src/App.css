@@ -799,8 +799,41 @@
 /* 타이밍 지표 그리드 */
 .timing-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.timing-grade-badge {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.timing-grade-green {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-green);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.timing-grade-red {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-red);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.timing-grade-yellow {
+  background: rgba(234, 179, 8, 0.1);
+  color: var(--color-yellow);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.timing-grade-gray {
+  background: rgba(139, 143, 163, 0.1);
+  color: var(--color-text-secondary);
+  border: 1px solid rgba(139, 143, 163, 0.25);
 }
 
 .timing-card {
