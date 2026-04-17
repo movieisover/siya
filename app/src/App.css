@@ -1954,6 +1954,7 @@
   gap: 4px;
   margin-bottom: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .chart-period-btn {
@@ -1981,6 +1982,18 @@
   position: relative;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.chart-stock-name {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(228, 230, 235, 0.35);
+  z-index: 2;
+  pointer-events: none;
+  letter-spacing: 0.5px;
 }
 
 .chart-loading {
@@ -2011,6 +2024,77 @@
 .chart-expand-btn:hover {
   background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.chart-ma-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.chart-ma-btn:hover {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text);
+}
+
+.chart-ma-btn.active {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.chart-cross-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cross-golden {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--color-green);
+}
+
+.cross-dead {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-red);
+}
+
+.chart-ma-legend {
+  position: absolute;
+  bottom: 36px;
+  left: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 4px 8px;
+  background: rgba(26, 29, 39, 0.85);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ma-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ma-legend-line {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
 }
 
 /* 중앙 패널 차트 영역 */

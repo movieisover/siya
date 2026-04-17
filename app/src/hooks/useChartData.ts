@@ -29,6 +29,20 @@ function getStartDate(period: ChartPeriod): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** 이평선 계산을 위해 6개월(120거래일) 버퍼 추가 */
+function getBufferedStartDate(period: ChartPeriod): string {
+  const d = new Date();
+  switch (period) {
+    case '1M': d.setMonth(d.getMonth() - 1); break;
+    case '3M': d.setMonth(d.getMonth() - 3); break;
+    case '6M': d.setMonth(d.getMonth() - 6); break;
+    case '1Y': d.setFullYear(d.getFullYear() - 1); break;
+    case '3Y': d.setFullYear(d.getFullYear() - 3); break;
+  }
+  d.setDate(d.getDate() - 180);
+  return d.toISOString().slice(0, 10);
+}
+
 function getTodayKST(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -38,6 +52,7 @@ function getTodayKST(): string {
 export function useChartData(stockCode: string | null, period: ChartPeriod, realtimePrice?: RealtimePriceData | null) {
   const [data, setData] = useState<ChartCandle[]>([]);
   const [loading, setLoading] = useState(false);
+  const visibleStartDate = getStartDate(period);
 
   useEffect(() => {
     if (!stockCode) { setData([]); return; }
@@ -45,7 +60,7 @@ export function useChartData(stockCode: string | null, period: ChartPeriod, real
     let cancelled = false;
     setLoading(true);
 
-    const startDate = getStartDate(period);
+    const startDate = getBufferedStartDate(period);
 
     async function fetchData() {
       const all: ChartCandle[] = [];
@@ -93,7 +108,7 @@ export function useChartData(stockCode: string | null, period: ChartPeriod, real
   // 실시간가 반영: 마지막 봉 업데이트
   const finalData = applyRealtimePrice(data, realtimePrice);
 
-  return { data: finalData, loading };
+  return { data: finalData, loading, visibleStartDate };
 }
 
 function applyRealtimePrice(data: ChartCandle[], realtimePrice?: RealtimePriceData | null): ChartCandle[] {

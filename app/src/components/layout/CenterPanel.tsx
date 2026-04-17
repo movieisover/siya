@@ -75,6 +75,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
         <div className="center-chart-area">
           <CandleChart
             stockCode={selectedStockCode}
+            stockName={stocks.find((s) => s.stock_code === selectedStockCode)?.stock_name}
             height={300}
           />
         </div>

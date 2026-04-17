@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, ColorType } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type ISeriesApi, ColorType } from 'lightweight-charts';
 import { useChartData, type ChartPeriod, type RealtimePriceData } from '../../hooks/useChartData';
 import Tooltip from '../common/Tooltip';
 
@@ -13,24 +13,104 @@ const PERIODS: { label: string; value: ChartPeriod }[] = [
 
 interface CandleChartProps {
   stockCode: string;
+  stockName?: string;
   height?: number;
   realtimePrice?: RealtimePriceData | null;
 }
 
-function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand, onExpand, realtimePrice }: {
+// ── SMA 계산 + 골든/데드크로스 감지 ──
+
+interface MAData {
+  time: string;
+  value: number;
+}
+
+interface CrossEvent {
+  time: string;
+  type: 'golden' | 'dead';
+}
+
+interface CrossStatus {
+  type: 'golden' | 'dead' | null;
+  days: number;
+}
+
+function calcSMA(closes: { time: string; close: number }[], period: number): MAData[] {
+  const result: MAData[] = [];
+  for (let i = period - 1; i < closes.length; i++) {
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += closes[j].close;
+    result.push({ time: closes[i].time, value: Math.round((sum / period) * 100) / 100 });
+  }
+  return result;
+}
+
+function findCrosses(ma20: MAData[], ma120: MAData[]): CrossEvent[] {
+  const map120 = new Map(ma120.map((d) => [d.time, d.value]));
+  const aligned = ma20.filter((d) => map120.has(d.time)).map((d) => ({
+    time: d.time,
+    diff: d.value - map120.get(d.time)!,
+  }));
+
+  const crosses: CrossEvent[] = [];
+  for (let i = 1; i < aligned.length; i++) {
+    if (aligned[i - 1].diff <= 0 && aligned[i].diff > 0) {
+      crosses.push({ time: aligned[i].time, type: 'golden' });
+    } else if (aligned[i - 1].diff >= 0 && aligned[i].diff < 0) {
+      crosses.push({ time: aligned[i].time, type: 'dead' });
+    }
+  }
+  return crosses;
+}
+
+function getCurrentCrossStatus(ma20: MAData[], ma120: MAData[]): CrossStatus {
+  const map120 = new Map(ma120.map((d) => [d.time, d.value]));
+  const aligned = ma20.filter((d) => map120.has(d.time));
+  if (aligned.length === 0) return { type: null, days: 0 };
+
+  const last = aligned[aligned.length - 1];
+  const lastDiff = last.value - map120.get(last.time)!;
+  const currentType: 'golden' | 'dead' = lastDiff > 0 ? 'golden' : 'dead';
+
+  let days = 0;
+  for (let i = aligned.length - 1; i >= 0; i--) {
+    const diff = aligned[i].value - map120.get(aligned[i].time)!;
+    if ((currentType === 'golden' && diff > 0) || (currentType === 'dead' && diff < 0)) {
+      days++;
+    } else break;
+  }
+
+  return { type: currentType, days };
+}
+
+function ChartCore({ stockCode, stockName, height = 250, period, onPeriodChange, showExpand, onExpand, realtimePrice, showMA, onToggleMA }: {
   stockCode: string;
+  stockName?: string;
   height: number;
   period: ChartPeriod;
   onPeriodChange: (p: ChartPeriod) => void;
   showExpand?: boolean;
   onExpand?: () => void;
   realtimePrice?: RealtimePriceData | null;
+  showMA: boolean;
+  onToggleMA: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const { data, loading } = useChartData(stockCode, period, realtimePrice);
+  const ma20Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const ma60Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const ma120Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const { data, loading, visibleStartDate } = useChartData(stockCode, period, realtimePrice);
+
+  // SMA 계산 (데이터 변경 시)
+  const closes = data.map((d) => ({ time: d.time, close: d.close }));
+  const sma20 = calcSMA(closes, 20);
+  const sma60 = calcSMA(closes, 60);
+  const sma120 = calcSMA(closes, 120);
+  const crosses = sma20.length > 0 && sma120.length > 0 ? findCrosses(sma20, sma120) : [];
+  const crossStatus = sma20.length > 0 && sma120.length > 0 ? getCurrentCrossStatus(sma20, sma120) : { type: null, days: 0 };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -88,6 +168,9 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
       chartRef.current = null;
       candleRef.current = null;
       volumeRef.current = null;
+      ma20Ref.current = null;
+      ma60Ref.current = null;
+      ma120Ref.current = null;
     };
   }, [height]);
 
@@ -106,8 +189,43 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
       }))
     );
 
-    chartRef.current?.timeScale().fitContent();
-  }, [data]);
+    chartRef.current?.timeScale().setVisibleRange({
+      from: visibleStartDate,
+      to: data[data.length - 1]?.time ?? visibleStartDate,
+    });
+  }, [data, visibleStartDate]);
+
+  // MA 시리즈 관리 (showMA 토글 시)
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    if (showMA) {
+      // MA 시리즈 생성
+      if (!ma20Ref.current && sma20.length > 0) {
+        const s = chart.addSeries(LineSeries, { color: '#22c55e', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        s.setData(sma20.map((d) => ({ time: d.time, value: d.value })));
+        ma20Ref.current = s;
+      }
+      if (!ma60Ref.current && sma60.length > 0) {
+        const s = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        s.setData(sma60.map((d) => ({ time: d.time, value: d.value })));
+        ma60Ref.current = s;
+      }
+      if (!ma120Ref.current && sma120.length > 0) {
+        const s = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        s.setData(sma120.map((d) => ({ time: d.time, value: d.value })));
+        ma120Ref.current = s;
+      }
+
+      // 골든/데드크로스는 이평선 교차 지점에서 시각적으로 확인 가능 + 상태 뽃지로 표시
+    } else {
+      // MA 시리즈 제거
+      if (ma20Ref.current) { chart.removeSeries(ma20Ref.current); ma20Ref.current = null; }
+      if (ma60Ref.current) { chart.removeSeries(ma60Ref.current); ma60Ref.current = null; }
+      if (ma120Ref.current) { chart.removeSeries(ma120Ref.current); ma120Ref.current = null; }
+    }
+  }, [showMA, sma20, sma60, sma120]);
 
   return (
     <div className="candle-chart-wrapper">
@@ -126,40 +244,76 @@ function ChartCore({ stockCode, height = 250, period, onPeriodChange, showExpand
             ⛶
           </button>
         )}
+        <button
+          className={`chart-ma-btn ${showMA ? 'active' : ''}`}
+          onClick={onToggleMA}
+          title="이동평균선 (20/60/120일) 표시"
+        >
+          이동평균선
+        </button>
+        {showMA && crossStatus.type && (
+          <span className={`chart-cross-badge ${crossStatus.type === 'golden' ? 'cross-golden' : 'cross-dead'}`}>
+            {crossStatus.type === 'golden' ? '🟢 골든크로스' : '🔴 데드크로스'} ({crossStatus.days}일째)
+          </span>
+        )}
         <Tooltip text={`일봉 캔들차트 (OHLCV + 거래량)
 
 빨간색 캔들 = 상승
 파란색 캔들 = 하락
 
+이동평균선 (MA 버튼 클릭 시 표시):
+🟢 20일선(초록): 단기 추세
+🟠 60일선(주황): 중기 추세
+🟣 120일선(보라): 장기 추세
+
+골든크로스(GC): 20일선이 120일선을 위로 돌파 → 상승 전환 신호
+데드크로스(DC): 20일선이 120일선을 아래로 돌파 → 하락 전환 신호
+
 데이터: 한국투자증권 API, 매일 16:00 자동 갱신`} />
       </div>
       <div ref={containerRef} className="chart-container">
         {loading && <div className="chart-loading">로딩 중...</div>}
+        {stockName && (
+          <div className="chart-stock-name">{stockName}</div>
+        )}
+        {showMA && (
+          <div className="chart-ma-legend">
+            <span className="ma-legend-item"><span className="ma-legend-line" style={{background:'#22c55e'}} />20일</span>
+            <span className="ma-legend-item"><span className="ma-legend-line" style={{background:'#f59e0b'}} />60일</span>
+            <span className="ma-legend-item"><span className="ma-legend-line" style={{background:'#a78bfa'}} />120일</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default function CandleChart({ stockCode, height = 300, realtimePrice }: CandleChartProps) {
+export default function CandleChart({ stockCode, stockName, height = 300, realtimePrice }: CandleChartProps) {
   const [period, setPeriod] = useState<ChartPeriod>('3M');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState<ChartPeriod>('3M');
+  const [showMA, setShowMA] = useState(false);
 
   const openModal = useCallback(() => {
     setModalPeriod(period);
     setModalOpen(true);
   }, [period]);
 
+  const toggleMA = useCallback(() => setShowMA((v) => !v), []);
+
   return (
     <>
       <ChartCore
         stockCode={stockCode}
+        stockName={stockName}
         height={height}
         period={period}
         onPeriodChange={setPeriod}
         showExpand
         onExpand={openModal}
         realtimePrice={realtimePrice}
+        showMA={showMA}
+        onToggleMA={toggleMA}
       />
 
       {modalOpen && (
@@ -168,10 +322,13 @@ export default function CandleChart({ stockCode, height = 300, realtimePrice }: 
             <button className="chart-modal-close" onClick={() => setModalOpen(false)}>✕</button>
             <ChartCore
               stockCode={stockCode}
+              stockName={stockName}
               height={Math.round(window.innerHeight * 0.65)}
               period={modalPeriod}
               onPeriodChange={setModalPeriod}
               realtimePrice={realtimePrice}
+              showMA={showMA}
+              onToggleMA={toggleMA}
             />
           </div>
         </div>
