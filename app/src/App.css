@@ -1512,7 +1512,7 @@
   color: var(--color-text);
 }
 
-/* ── 테마 카테고리 ── */
+/* ── 테마 카테고리 (구 스타일 — 현재 미사용, 호환용으로 남겨두었음) ── */
 .theme-category {
   font-size: 11px;
   font-weight: 600;
@@ -1521,6 +1521,52 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.7;
+}
+
+/* 카테고리 헤더 (접기/펼치기 버튼) */
+.theme-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.theme-category-header:hover {
+  background: var(--color-surface-hover);
+}
+
+.theme-category-icon {
+  display: inline-block;
+  font-size: 9px;
+  width: 10px;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.theme-category-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+.theme-category-name {
+  flex: 1;
+}
+
+.theme-category-count {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .theme-card-header {

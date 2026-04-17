@@ -16,6 +16,11 @@ interface LeftPanelProps {
 export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilterApply }: LeftPanelProps) {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
+  };
 
   const themeIds = useMemo(() => themes.map((t) => t.theme_id), [themes]);
   const { analyses, loading: analysisLoading } = useThemeAnalysis(themeIds);
@@ -50,21 +55,34 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
         {loading ? (
           <div className="empty-state">불러오는 중...</div>
         ) : (
-          Object.entries(grouped).map(([category, categoryThemes]) => (
-            <div key={category}>
-              <div className="theme-category">{category}</div>
-              {categoryThemes.map((theme) => (
-                <ThemeCard
-                  key={theme.theme_id}
-                  theme={theme}
-                  selected={selectedThemeId === theme.theme_id}
-                  analysis={analyses[theme.theme_id]}
-                  analysisLoading={analysisLoading}
-                  onClick={() => onThemeSelect(theme.theme_id)}
-                />
-              ))}
-            </div>
-          ))
+          Object.entries(grouped).map(([category, categoryThemes]) => {
+            const isCollapsed = !!collapsedCategories[category];
+            return (
+              <div key={category}>
+                <button
+                  className="theme-category-header"
+                  onClick={() => toggleCategory(category)}
+                  aria-expanded={!isCollapsed}
+                  type="button"
+                >
+                  <span className={`theme-category-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</span>
+                  <span className="theme-category-name">{category}</span>
+                  <span className="theme-category-count">({categoryThemes.length})</span>
+                </button>
+                {!isCollapsed &&
+                  categoryThemes.map((theme) => (
+                    <ThemeCard
+                      key={theme.theme_id}
+                      theme={theme}
+                      selected={selectedThemeId === theme.theme_id}
+                      analysis={analyses[theme.theme_id]}
+                      analysisLoading={analysisLoading}
+                      onClick={() => onThemeSelect(theme.theme_id)}
+                    />
+                  ))}
+              </div>
+            );
+          })
         )}
       </aside>
     );
