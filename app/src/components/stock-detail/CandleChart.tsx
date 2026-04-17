@@ -25,11 +25,6 @@ interface MAData {
   value: number;
 }
 
-interface CrossEvent {
-  time: string;
-  type: 'golden' | 'dead';
-}
-
 interface CrossStatus {
   type: 'golden' | 'dead' | null;
   days: number;
@@ -43,24 +38,6 @@ function calcSMA(closes: { time: string; close: number }[], period: number): MAD
     result.push({ time: closes[i].time, value: Math.round((sum / period) * 100) / 100 });
   }
   return result;
-}
-
-function findCrosses(ma20: MAData[], ma120: MAData[]): CrossEvent[] {
-  const map120 = new Map(ma120.map((d) => [d.time, d.value]));
-  const aligned = ma20.filter((d) => map120.has(d.time)).map((d) => ({
-    time: d.time,
-    diff: d.value - map120.get(d.time)!,
-  }));
-
-  const crosses: CrossEvent[] = [];
-  for (let i = 1; i < aligned.length; i++) {
-    if (aligned[i - 1].diff <= 0 && aligned[i].diff > 0) {
-      crosses.push({ time: aligned[i].time, type: 'golden' });
-    } else if (aligned[i - 1].diff >= 0 && aligned[i].diff < 0) {
-      crosses.push({ time: aligned[i].time, type: 'dead' });
-    }
-  }
-  return crosses;
 }
 
 function getCurrentCrossStatus(ma20: MAData[], ma120: MAData[]): CrossStatus {
@@ -109,7 +86,6 @@ function ChartCore({ stockCode, stockName, height = 250, period, onPeriodChange,
   const sma20 = calcSMA(closes, 20);
   const sma60 = calcSMA(closes, 60);
   const sma120 = calcSMA(closes, 120);
-  const crosses = sma20.length > 0 && sma120.length > 0 ? findCrosses(sma20, sma120) : [];
   const crossStatus = sma20.length > 0 && sma120.length > 0 ? getCurrentCrossStatus(sma20, sma120) : { type: null, days: 0 };
 
   useEffect(() => {
@@ -208,12 +184,12 @@ function ChartCore({ stockCode, stockName, height = 250, period, onPeriodChange,
         ma20Ref.current = s;
       }
       if (!ma60Ref.current && sma60.length > 0) {
-        const s = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        const s = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
         s.setData(sma60.map((d) => ({ time: d.time, value: d.value })));
         ma60Ref.current = s;
       }
       if (!ma120Ref.current && sma120.length > 0) {
-        const s = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        const s = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
         s.setData(sma120.map((d) => ({ time: d.time, value: d.value })));
         ma120Ref.current = s;
       }
