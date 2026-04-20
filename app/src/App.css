@@ -1157,6 +1157,44 @@
   margin-top: 2px;
 }
 
+/* ━━ 결정 대기 카드 (기준일 지났으나 금액 미확정) ━━ */
+.dividend-pending {
+  background: rgba(234, 179, 8, 0.06);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.dividend-pending-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-yellow);
+  margin-bottom: 6px;
+}
+
+.dividend-pending-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.dividend-pending-note {
+  font-weight: 600;
+  color: var(--color-yellow);
+  font-size: 12px;
+}
+
+.dividend-pending-type {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
 .dividend-history {
   margin-top: 4px;
 }
@@ -1789,9 +1827,12 @@
   color: var(--color-text);
   white-space: pre-line;
   width: 280px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   z-index: 9999;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   pointer-events: auto;
+  transition: opacity 0.08s ease-in;
 }
 
 /* ── ❓ 도움말 페이지 ── */

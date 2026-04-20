@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 
 interface TooltipProps {
   text: string;
@@ -7,35 +7,45 @@ interface TooltipProps {
 
 export default function Tooltip({ text, children }: TooltipProps) {
   const [show, setShow] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, ready: false });
   const iconRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
 
-  const updatePosition = useCallback(() => {
-    if (!iconRef.current) return;
-    const rect = iconRef.current.getBoundingClientRect();
-    const tipWidth = 280;
+  // 툴팁이 렌더된 후 실제 크기를 측정해서 재배치
+  useLayoutEffect(() => {
+    if (!show || !tipRef.current || !iconRef.current) return;
 
-    // 좌측 패널에서 잘리지 않도록 우측으로 배치
-    let left = rect.right + 8;
-    if (left + tipWidth > window.innerWidth) {
-      left = rect.left - tipWidth - 8;
+    const iconRect = iconRef.current.getBoundingClientRect();
+    const tipRect = tipRef.current.getBoundingClientRect();
+    const tipWidth = tipRect.width;
+    const tipHeight = tipRect.height;
+    const margin = 8;
+
+    // 좌우: 아이콘 오른쪽에 배치, 화면 밖으면 왼쪽으로
+    let left = iconRect.right + margin;
+    if (left + tipWidth > window.innerWidth - margin) {
+      left = iconRect.left - tipWidth - margin;
     }
-    if (left < 8) left = 8;
+    if (left < margin) left = margin;
 
-    // 아래로 표시, 화면 밖이면 위로
-    let top = rect.top - 4;
-    if (top + 120 > window.innerHeight) {
-      top = rect.bottom - 120;
+    // 상하: 기본은 아이콘 top 근처,
+    //       아래로 넘치면 화면 하단에 맞춰 위로 이동,
+    //       그래도 위로 넘치면 화면 상단에 고정
+    let top = iconRect.top - 4;
+    if (top + tipHeight > window.innerHeight - margin) {
+      top = window.innerHeight - tipHeight - margin;
     }
-    if (top < 8) top = 8;
+    if (top < margin) top = margin;
 
-    setPos({ top, left });
-  }, []);
+    setPos({ top, left, ready: true });
+  }, [show, text]);
 
   const handleShow = () => {
-    updatePosition();
+    setPos({ top: 0, left: 0, ready: false }); // 일단 렌더를 안 보이게
     setShow(true);
   };
+
+  const handleHide = () => setShow(false);
 
   return (
     <span className="tooltip-wrapper">
@@ -43,24 +53,26 @@ export default function Tooltip({ text, children }: TooltipProps) {
         ref={iconRef}
         className="tooltip-icon"
         onMouseEnter={handleShow}
-        onMouseLeave={() => setShow(false)}
+        onMouseLeave={handleHide}
         onClick={(e) => {
           e.stopPropagation();
-          if (show) {
-            setShow(false);
-          } else {
-            handleShow();
-          }
+          if (show) setShow(false);
+          else handleShow();
         }}
       >
         {children || '\u24d8'}
       </span>
       {show && (
         <div
+          ref={tipRef}
           className="tooltip-content-fixed"
-          style={{ top: pos.top, left: pos.left }}
+          style={{
+            top: pos.top,
+            left: pos.left,
+            opacity: pos.ready ? 1 : 0,
+          }}
           onMouseEnter={() => setShow(true)}
-          onMouseLeave={() => setShow(false)}
+          onMouseLeave={handleHide}
         >
           {text}
         </div>

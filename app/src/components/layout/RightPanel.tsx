@@ -556,15 +556,33 @@ function DividendSection({ dividends }: { dividends: DividendItem[] }) {
     );
   }
 
-  // 다음 예정 배당 (미래 날짜 또는 DPS 0인 것)
   const today = new Date().toISOString().slice(0, 10);
+
+  // 결정 대기 표시 임계값 (120일 — 결산공시 시즌 감안)
+  // 120일 이상 지나도 금액 미확정이면 사실상 무배당 확정으로 간주 → 숨김
+  const PENDING_WINDOW_DAYS = 120;
+  const pendingCutoffDate = new Date();
+  pendingCutoffDate.setDate(pendingCutoffDate.getDate() - PENDING_WINDOW_DAYS);
+  const pendingCutoff = pendingCutoffDate.toISOString().slice(0, 10);
+
+  // ① 다음 예정 배당: 미래 기준일 또는 미래 지급일이 있고 금액 확정된 것
   const upcoming = dividends.find(
-    (d) => d.record_date >= today || (d.dividend_per_share === 0 && !d.payment_date)
+    (d) => d.dividend_per_share > 0 && (d.record_date > today || (d.payment_date && d.payment_date > today))
   );
 
-  // 과거 배당 이력 (금액 확정된 것만, 최대 6건)
+  // ② 결정 대기: 금액 미확정 + 기준일이 오늘 이전이되 120일 이내인 것
+  //   (회사 정관상 기준일은 지정돼 있으나 이사회 결의/공시가 아직 안 된 경우)
+  //   120일 이상 묵은 건 사실상 무배당이므로 숨김
+  const pendingDecisions = dividends.filter(
+    (d) =>
+      d.dividend_per_share === 0 &&
+      d.record_date <= today &&
+      d.record_date >= pendingCutoff
+  );
+
+  // ③ 과거 배당 이력 (금액 확정 + 지급일이 오늘까지, 최대 6건)
   const history = dividends
-    .filter((d) => d.dividend_per_share > 0)
+    .filter((d) => d.dividend_per_share > 0 && (!d.payment_date || d.payment_date <= today))
     .slice(0, 6);
 
   return (
@@ -577,25 +595,29 @@ function DividendSection({ dividends }: { dividends: DividendItem[] }) {
 지급일: 실제 배당금이 입금되는 날
 DPS: 주당 배당금 (원)
 
+상태 구분:
+· 다음 배당 (파란): 금액이 확정된 미래 예정 배당
+· 결정 대기 (노란): 기준일은 지정됐으나 아직 이사회에서 금액이 결정/공시되지 않은 배당
+  (최근 120일 이내 기준일만 표시)
+
 ⚠️ 배당을 받으려면 배당기준일 직전 거래일까지 매수해야 합니다.
 (기준일 당일 매수는 배당 대상이 아닙니다)
 
 데이터: KIS API (ksdinfo/dividend), 매주 월 17:00 자동 갱신`} />
       </div>
 
-      {/* 다음 예정 배당 카드 */}
+      {/* 이 종목이 지금 보여줄 게 아무것도 없으면 빈 상태 */}
+      {!upcoming && pendingDecisions.length === 0 && history.length === 0 && (
+        <div className="dividend-empty">표시할 배당 정보가 없습니다</div>
+      )}
+
+      {/* ① 다음 예정 배당 카드 (금액 확정) */}
       {upcoming && (
         <div className="dividend-upcoming">
-          <div className="dividend-upcoming-label">
-            {upcoming.dividend_per_share === 0 ? '📅 다음 배당 예정' : '📅 다음 배당'}
-          </div>
+          <div className="dividend-upcoming-label">📅 다음 배당</div>
           <div className="dividend-upcoming-detail">
             <span>기준일 {formatDivDate(upcoming.record_date)}</span>
-            {upcoming.dividend_per_share > 0 ? (
-              <span className="dividend-upcoming-dps">{upcoming.dividend_per_share.toLocaleString()}원/주</span>
-            ) : (
-              <span className="dividend-upcoming-pending">금액 미확정</span>
-            )}
+            <span className="dividend-upcoming-dps">{upcoming.dividend_per_share.toLocaleString()}원/주</span>
           </div>
           {upcoming.payment_date && (
             <div className="dividend-upcoming-pay">지급일 {formatDivDate(upcoming.payment_date)}</div>
@@ -606,7 +628,29 @@ DPS: 주당 배당금 (원)
         </div>
       )}
 
-      {/* 과거 배당 이력 테이블 */}
+      {/* ② 결정 대기 카드 (기준일 지났으나 금액 미확정) */}
+      {pendingDecisions.map((d, i) => (
+        <div key={`pending-${i}`} className="dividend-pending">
+          <div className="dividend-pending-label">
+            ⏳ 결정 대기
+            <Tooltip text={`회사 정관상 기준일은 정해져 있지만,
+아직 이사회 결의 또는 공시로 배당 금액이
+확정되지 않은 상태입니다.
+
+공시가 나오면 자동으로 갱신됩니다.
+경우에 따라 무배당/감액 결정이 날 수도 있습니다.`} />
+          </div>
+          <div className="dividend-pending-detail">
+            <span>기준일 {formatDivDate(d.record_date)}</span>
+            <span className="dividend-pending-note">금액 미확정</span>
+          </div>
+          <div className="dividend-pending-type">
+            {d.dividend_type || '-'} · {d.stock_kind}
+          </div>
+        </div>
+      ))}
+
+      {/* ③ 과거 배당 이력 테이블 */}
       {history.length > 0 && (
         <div className="dividend-history">
           <div className="dividend-history-title">최근 배당 이력</div>
