@@ -174,7 +174,7 @@ def update_valuation():
             listing = fdr.StockListing(market)
             for _, row in listing.iterrows():
                 code = str(row.get('Code', '')).strip()
-                shares = row.get('Shares', None)
+                shares = row.get('Stocks', None)
                 if code and shares and shares > 0:
                     shares_map[code] = int(shares)
         except Exception as e:
