@@ -435,6 +435,21 @@
   - RightPanel 타이밍 툴팁, LeftPanel 테마 카드 툴팁, HelpPage 타이밍/용어사전 모두 통일
 - **GitHub Actions**: 기존 `collect-dividends.yml`에 Step 추가 (매주 월요일 KST 17:00, 최근 7일분)
 
+### 2026-04-28: GitHub Actions 한도 100% 도달 대응 + PER/PBR 버그 수정
+- **배경**: 4/27 GitHub Actions 월 2,000분 100% 사용 → 모든 워크플로우 실행 차단됨 (5/1 초기화까지)
+- **대응**: 5/1까지 PC 수동 실행으로 전환
+  - `python daily_update.py && python collect_disclosures.py`
+  - 평일 장마감 후 1회 실행 (약 55분 소요)
+  - `daily_update.py`는 최근 20일치 백필 + UPSERT라 빠진 데이터 자동 만회
+- **4/28 수동 갱신 결과**: 시세 2,773종목(41,515건) + RSI/MACD 2,680 + 수급 2,773 + 공시 795건 → 4/24 이후 데이터 전부 백필 완료
+
+#### PER/PBR 버그 발견 및 수정
+- **증상**: `update_valuation()`에서 "발행주식수: 0개 종목" → PER/PBR 재계산이 전혀 안 되고 있었음
+- **원인**: FDR `StockListing()` 반환 컨럼명이 `Shares` → `Stocks`로 변경됨 (FDR 버전 업데이트 시 변경된 것으로 추정)
+- **수정**: `daily_update.py` 121번째 줄 `row.get('Shares')` → `row.get('Stocks')`
+- **수정 후 결과**: 발행주식수 2,770개 정상 인식, PER/PBR 2,583개 종목 재계산 완료
+- **교훈**: FDR 업데이트 시 컨럼명 변경 가능성 항상 염두. GitHub Actions에서도 0개였을 가능성 높음 (잘보한 버그)
+
 ### 2026-04-24: GitHub Actions 사용량 절감 (공시 수집 3시간 간격)
 - **배경**: GitHub에서 "2,000분 중 90% 사용" 알림 → 조사 결과 `collect-disclosures.yml`의 매시간 실행(평일 10회/일)이 사용량의 60~80% 차지
 - **변경**: `collect-disclosures.yml` cron 스케줄
