@@ -443,6 +443,19 @@
   - `daily_update.py`는 최근 20일치 백필 + UPSERT라 빠진 데이터 자동 만회
 - **4/28 수동 갱신 결과**: 시세 2,773종목(41,515건) + RSI/MACD 2,680 + 수급 2,773 + 공시 795건 → 4/24 이후 데이터 전부 백필 완료
 
+#### Windows Task Scheduler 설정 (GitHub Actions 백업)
+- **배경**: GitHub Actions 한도 초과 시 로컬 대안 필요
+- **Cowork Scheduled Tasks 시도 → 실패**: Cowork 터미널은 Linux 샌드박스에서 실행되어 Windows conda 환경/로컬 패키지 사용 불가
+- **대안**: Windows Task Scheduler로 로컬 자동 실행 구성
+  - 배치 파일: `scripts/daily_collect.bat` (영문 전용, 한글 인코딩 문제 회피)
+  - 스케줄: 평일 16:30 (월~금)
+  - 동작: conda activate siya → daily_update.py → collect_disclosures.py
+  - 로그: `logs/daily_YYYYMMDD.log` 자동 저장
+  - 놓친 스케줄 자동 실행 설정 완료
+  - 절전 설정: 전원 연결 시 절전 모드 "안 함"으로 변경됨
+- **운영 체제**: 기본 GitHub Actions (5/1 재개, 월 ~680분) + 백업 Task Scheduler (한도 초과 시 전환)
+- **주의**: 회사 PC 절전 설정 변경함 (전원 연결 시 절전 30분 → 안 함). 배터리 모드는 30분 그대로
+
 #### PER/PBR 버그 발견 및 수정
 - **증상**: `update_valuation()`에서 "발행주식수: 0개 종목" → PER/PBR 재계산이 전혀 안 되고 있었음
 - **원인**: FDR `StockListing()` 반환 컨럼명이 `Shares` → `Stocks`로 변경됨 (FDR 버전 업데이트 시 변경된 것으로 추정)
