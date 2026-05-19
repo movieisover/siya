@@ -55,10 +55,10 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
     return () => clearInterval(interval);
   }, []);
 
-  // 검색 실행 (디바운스 300ms)
+  // 검색 실행 (디바운스 300ms, 2글자 이상)
   useEffect(() => {
     const q = searchQuery.trim();
-    if (q.length < 1) {
+    if (q.length < 2) {
       setResults([]);
       setShowResults(false);
       return;
@@ -67,24 +67,13 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        // 종목코드 정확 매칭 또는 종목명 부분 매칭
-        const isCode = /^\d+$/.test(q);
-        let query;
-        if (isCode) {
-          query = supabase
-            .from('stocks')
-            .select('stock_code, stock_name, market')
-            .like('stock_code', `${q}%`)
-            .limit(10);
-        } else {
-          query = supabase
-            .from('stocks')
-            .select('stock_code, stock_name, market')
-            .ilike('stock_name', `%${q}%`)
-            .limit(10);
-        }
+        const { data, error } = await supabase
+          .from('stocks')
+          .select('stock_code, stock_name, market')
+          .or(`stock_name.ilike.%${q}%,stock_code.ilike.%${q}%`)
+          .eq('is_active', true)
+          .order('stock_name');
 
-        const { data, error } = await query;
         if (!error && data) {
           setResults(data as SearchResult[]);
           setShowResults(data.length > 0);
@@ -174,7 +163,7 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
         <input
           className="search-input"
           type="text"
-          placeholder="종목명 또는 종목코드 검색"
+          placeholder="종목명 또는 종목코드 검색 (2글자 이상)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
