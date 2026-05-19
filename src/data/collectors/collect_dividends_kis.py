@@ -61,13 +61,11 @@ def get_latest_valuation_dates():
     while True:
         res = supabase.table('valuation').select(
             'stock_code, trade_date'
-        ).gte('trade_date', cutoff).order(
-            'trade_date', desc=True
-        ).range(offset, offset + 999).execute()
+        ).gte('trade_date', cutoff).range(offset, offset + 999).execute()
 
         for r in res.data:
             code = r['stock_code']
-            if code not in date_map:
+            if code not in date_map or r['trade_date'] > date_map[code]:
                 date_map[code] = r['trade_date']
         if len(res.data) < 1000:
             break
@@ -78,21 +76,20 @@ def get_latest_valuation_dates():
 def get_latest_prices():
     """
     종목별 최신 시세(close, trade_date) 맵.
-    price_daily에서 최근 5일 이내 데이터만 조회해 종목당 가장 최근 1건을 사용.
+    price_daily에서 최근 3일 이내 데이터만 조회 (ORDER BY 없이 배치 처리).
     """
-    cutoff = (TODAY - timedelta(days=10)).strftime('%Y-%m-%d')
+    cutoff = (TODAY - timedelta(days=5)).strftime('%Y-%m-%d')
     price_map = {}
     offset = 0
     while True:
         res = supabase.table('price_daily').select(
             'stock_code, close, trade_date'
-        ).gte('trade_date', cutoff).order(
-            'trade_date', desc=True
-        ).range(offset, offset + 999).execute()
+        ).gte('trade_date', cutoff).range(offset, offset + 999).execute()
 
         for r in res.data:
             code = r['stock_code']
-            if code not in price_map:  # 최신순 정렬이라 첫 등장이 최신
+            # 기존보다 더 최신 날짜면 교체
+            if code not in price_map or r['trade_date'] > price_map[code]['trade_date']:
                 price_map[code] = {
                     'close': r['close'],
                     'trade_date': r['trade_date'],
