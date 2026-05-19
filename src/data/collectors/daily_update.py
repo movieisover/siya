@@ -3,7 +3,7 @@
 매일 장 마감 후 GitHub Actions에서 자동 실행
 
 수행 작업:
-  1. 최근 시세 수집 (pykrx 전종목 일괄, 최근 5거래일)
+  1. 최근 시세 수집 (KIS API 종목별 일봉, 최근 10거래일)
   2. PER/PBR 재계산 (최신 시세 + 재무제표)
   3. RSI/MACD 재계산 (최근 시세 기반)
   4. 기관/외국인 수급 수집 (한국투자증권 API)
@@ -22,7 +22,6 @@ if os.path.exists(_env_path):
     load_dotenv(_env_path)
 
 from supabase import create_client
-from pykrx import stock
 import FinanceDataReader as fdr
 from kis_api import kis_get
 

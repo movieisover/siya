@@ -16,11 +16,6 @@ interface LeftPanelProps {
 export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilterApply }: LeftPanelProps) {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(false);
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-
-  const toggleCategory = (category: string) => {
-    setCollapsedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
-  };
 
   const themeIds = useMemo(() => themes.map((t) => t.theme_id), [themes]);
   const { analyses, loading: analysisLoading } = useThemeAnalysis(themeIds);
@@ -37,7 +32,6 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
       .from('themes')
       .select('*')
       .eq('is_active', true)
-      .order('category')
       .order('theme_name');
 
     if (!error && data) {
@@ -47,42 +41,22 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
   }
 
   if (mode === 'theme') {
-    const grouped = groupByCategory(themes);
-
     return (
       <aside className="panel left-panel">
-        <div className="section-title">테마 목록</div>
+        <div className="section-title">테마 목록 ({themes.length})</div>
         {loading ? (
           <div className="empty-state">불러오는 중...</div>
         ) : (
-          Object.entries(grouped).map(([category, categoryThemes]) => {
-            const isCollapsed = !!collapsedCategories[category];
-            return (
-              <div key={category}>
-                <button
-                  className="theme-category-header"
-                  onClick={() => toggleCategory(category)}
-                  aria-expanded={!isCollapsed}
-                  type="button"
-                >
-                  <span className={`theme-category-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</span>
-                  <span className="theme-category-name">{category}</span>
-                  <span className="theme-category-count">({categoryThemes.length})</span>
-                </button>
-                {!isCollapsed &&
-                  categoryThemes.map((theme) => (
-                    <ThemeCard
-                      key={theme.theme_id}
-                      theme={theme}
-                      selected={selectedThemeId === theme.theme_id}
-                      analysis={analyses[theme.theme_id]}
-                      analysisLoading={analysisLoading}
-                      onClick={() => onThemeSelect(theme.theme_id)}
-                    />
-                  ))}
-              </div>
-            );
-          })
+          themes.map((theme) => (
+            <ThemeCard
+              key={theme.theme_id}
+              theme={theme}
+              selected={selectedThemeId === theme.theme_id}
+              analysis={analyses[theme.theme_id]}
+              analysisLoading={analysisLoading}
+              onClick={() => onThemeSelect(theme.theme_id)}
+            />
+          ))
         )}
       </aside>
     );
@@ -338,16 +312,6 @@ MACD: 테마 내 종목 중 상승 전환 신호 비율
 }
 
 // ── 유틸리티 함수 ──
-
-function groupByCategory(themes: Theme[]): Record<string, Theme[]> {
-  const result: Record<string, Theme[]> = {};
-  for (const theme of themes) {
-    const cat = theme.category || '기타';
-    if (!result[cat]) result[cat] = [];
-    result[cat].push(theme);
-  }
-  return result;
-}
 
 function getTimingLabel(signal: 'green' | 'yellow' | 'red'): string {
   switch (signal) {

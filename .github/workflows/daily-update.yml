@@ -23,7 +23,7 @@ jobs:
 
       - name: 패키지 설치
         run: |
-          pip install finance-datareader pykrx pandas numpy python-dotenv supabase requests
+          pip install finance-datareader pandas numpy python-dotenv supabase requests
 
       - name: 일일 데이터 업데이트 실행
         env:

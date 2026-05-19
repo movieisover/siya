@@ -435,6 +435,28 @@
   - RightPanel 타이밍 툴팁, LeftPanel 테마 카드 툴팁, HelpPage 타이밍/용어사전 모두 통일
 - **GitHub Actions**: 기존 `collect-dividends.yml`에 Step 추가 (매주 월요일 KST 17:00, 최근 7일분)
 
+### 2026-04-29: 테마 v3 초안 작성 + Task Scheduler UTF-8 수정
+
+#### 테마 v3 초안 (DB 미반영 — 팀 리뷰 후 일괄 반영 예정)
+- **상태**: 초안 작성 완료, **아직 Supabase에 실행하지 않음** ⚠️
+- **진행 방침**: 팀원들이 v3 docx 리뷰 → 피드백 수집 → 추가 수정 반영 → SQL 최종본 확정 → 그때 일괄 DB 반영
+- **v3 SQL을 팀 리뷰 없이 바로 실행하지 말 것!**
+- **파일**:
+  - `docs/migrate_themes_v3.sql` — 마이그레이션 SQL 초안 (실행 금지)
+  - `docs/시야_테마종목_매핑현황_v3.docx` — 팀 리뷰용 문서 (30테마/196종목/258매핑)
+- **v3 변경 요약**:
+  - 테마 분리 3건: 화학/정유→정유+석유화학, 조선/해운→조선+해운, 원자력/전력→전력기기+원자력
+  - 신규 테마 3개: 석유화학, 해운, 원자력 (27→30)
+  - 신규 매핑 ~63개 (198→258)
+  - Claude 검토 의견: 원자력 13종목 비대(watch), 효성ITX 양자 근거 약함(confirm), 대한항공 미매핑 해소(good)
+- **다음 세션에서 할 일**:
+  - 팀 피드백 결과 확인 → v3 SQL 수정 → Supabase 백업 → SQL 실행 → 검증
+
+#### Task Scheduler UTF-8 수정
+- **문제**: 4/29 16:30 자동 실행 시 이모지(⏳, ✅) 출력에서 cp949 인코딩 에러로 크래시
+- **수정**: `daily_collect.bat`에 `chcp 65001` + `PYTHONIOENCODING=utf-8` 추가
+- **결과**: 19:26 수동 재실행 시 정상 동작 확인 (exit: 0). 로그 한글 깨짐은 표시 문제일 뿐 데이터 수집은 정상
+
 ### 2026-04-28: GitHub Actions 한도 100% 도달 대응 + PER/PBR 버그 수정
 - **배경**: 4/27 GitHub Actions 월 2,000분 100% 사용 → 모든 워크플로우 실행 차단됨 (5/1 초기화까지)
 - **대응**: 5/1까지 PC 수동 실행으로 전환
@@ -745,16 +767,14 @@ stock-analyzer/
 
 ## TODO: 보류 작업
 
-### pykrx API 복구 확인 (정기적으로 체크 필요)
-- **상태**: 2026-04-01 기준 `get_market_fundamental`, `get_market_trading_value_by_date` 등 고장
-- **영향**: 밸류에이션(PER/PBR) 수집 불가
-- **수급 데이터**: ✅ 한국투자증권(KIS) API로 대체 완료 (`collect_investor_kis.py`)
-- **시세 수집**: ✅ KIS API 일봉 조회로 대체 완료 (`daily_update.py update_prices()`)
-- **확인 방법**: `python scripts/test_valuation.py` 실행
-- **GitHub 이슈 확인**: https://github.com/sharebook-kr/pykrx/issues
-- **복구 시 실행할 것**:
-  1. `pip install --upgrade pykrx` (패키지 업데이트)
-  2. `python src/data/collectors/collect_valuation.py` (밸류에이션 수집)
+### pykrx API — 완전 대체 완료 (KIS API)
+- **상태**: 2026-04-01 기준 pykrx 고장 → KIS API로 전면 대체 완료
+- **시세**: KIS API 일봉 조회 ✅
+- **수급**: KIS API 투자자별 매매동향 ✅
+- **PER/PBR**: FDR 발행주식수 + 자체계산 ✅
+- **RSI/MACD**: 자체계산 ✅
+- **결론**: pykrx import 제거, GitHub Actions에서도 제거 (2026-05-13)
+- **세션 시작 시 pykrx 복구 확인 불필요**
 
 ### Claude API 크레딧 충전 필요
 - **상태**: API 키 발급 및 `app/.env` 입력 완료 (2026-04-07)
