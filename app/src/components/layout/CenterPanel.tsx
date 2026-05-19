@@ -136,7 +136,10 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
 
       {/* 편집 모드: 종목 추가 검색 */}
       {editMode && mode === 'theme' && selectedThemeId && (
-        <div className="stock-search-add" style={{ padding: '0 16px 12px', position: 'relative' }}>
+        <div className="stock-search-add" style={{ padding: '8px 16px 12px', position: 'relative' }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '6px' }}>
+            종목 편집 — 검색해서 추가하거나, 우측 ✕ 버튼으로 제거
+          </div>
           <input
             type="text"
             className="stock-search-add-input"

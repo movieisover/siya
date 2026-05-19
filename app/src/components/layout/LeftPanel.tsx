@@ -65,9 +65,8 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
           <button
             className={`edit-mode-btn ${editMode ? 'active' : ''}`}
             onClick={onEditModeToggle}
-            title={editMode ? '편집 완료' : '테마 편집'}
           >
-            {editMode ? '✓ 완료' : '✏️ 편집'}
+            {editMode ? '✓ 편집 완료' : '테마 편집'}
           </button>
         </div>
 
