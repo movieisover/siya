@@ -136,7 +136,6 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
             ) : (
               <ThemeCard
                 key={theme.id}
-                themeId={theme.id}
                 themeName={theme.theme_name}
                 selected={selectedThemeId === theme.id}
                 analysis={analyses[theme.id]}
@@ -250,9 +249,8 @@ function FilterSlider({
 // ── 테마 카드 컴포넌트 ──
 
 function ThemeCard({
-  themeId, themeName, selected, analysis, analysisLoading, onClick,
+  themeName, selected, analysis, analysisLoading, onClick,
 }: {
-  themeId: number;
   themeName: string;
   selected: boolean;
   analysis?: ThemeAnalysis;
