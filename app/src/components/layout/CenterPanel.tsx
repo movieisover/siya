@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { AppMode } from '../../App';
 import type { ScreenerFilters } from '../../types/stock';
 import { useThemeStocks } from '../../hooks/useThemeData';
 import { useScreenerStocks } from '../../hooks/useScreenerStocks';
 import { useWatchlistStocks } from '../../hooks/useWatchlistStocks';
+import type { useUserThemes } from '../../hooks/useUserThemes';
+import { supabase } from '../../lib/supabase';
 import CandleChart from '../stock-detail/CandleChart';
 
 interface CenterPanelProps {
@@ -13,12 +15,14 @@ interface CenterPanelProps {
   screenerFilters: ScreenerFilters | null;
   watchlistCodes: string[];
   onStockSelect: (code: string) => void;
+  editMode: boolean;
+  userThemes: ReturnType<typeof useUserThemes>;
 }
 
 type SortKey = 'stock_name' | 'total_score' | 'per' | 'pbr' | 'roe' | 'close' | 'change_pct' | 'debt_ratio' | 'div_yield';
 type SortDir = 'asc' | 'desc';
 
-export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, screenerFilters, watchlistCodes, onStockSelect }: CenterPanelProps) {
+export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, screenerFilters, watchlistCodes, onStockSelect, editMode, userThemes }: CenterPanelProps) {
   const { stocks: themeStocks, loading: themeLoading } = useThemeStocks(mode === 'theme' ? selectedThemeId : null);
   const { stocks: screenerStocks, loading: screenerLoading, totalCount } = useScreenerStocks(mode === 'screener' ? screenerFilters : null);
   const { stocks: watchStocks, loading: watchLoading } = useWatchlistStocks(mode === 'watchlist' ? watchlistCodes : []);
@@ -28,6 +32,53 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
 
   const [sortKey, setSortKey] = useState<SortKey>('total_score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // 편집 모드: 종목 검색
+  const [stockSearch, setStockSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ stock_code: string; stock_name: string; market: string }>>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchTimeout = useRef<any>(null);
+
+  // 종목 검색 디바운스
+  useEffect(() => {
+    if (!stockSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(async () => {
+      const query = stockSearch.trim();
+      const { data } = await supabase
+        .from('stocks')
+        .select('stock_code, stock_name, market')
+        .or(`stock_name.ilike.%${query}%,stock_code.ilike.%${query}%`)
+        .eq('is_active', true)
+        .limit(10);
+      setSearchResults(data || []);
+    }, 300);
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+  }, [stockSearch]);
+
+  // 종목 추가
+  async function handleAddStock(stockCode: string) {
+    if (!selectedThemeId) return;
+    const ok = await userThemes.addStock(selectedThemeId, stockCode);
+    if (ok) {
+      setStockSearch('');
+      setSearchResults([]);
+      // 테마 종목 리스트 리로드 트리거
+      window.dispatchEvent(new Event('theme-stocks-changed'));
+    }
+  }
+
+  // 종목 제거
+  async function handleRemoveStock(stockCode: string) {
+    if (!selectedThemeId) return;
+    const ok = await userThemes.removeStock(selectedThemeId, stockCode);
+    if (ok) {
+      window.dispatchEvent(new Event('theme-stocks-changed'));
+    }
+  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -82,6 +133,40 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
       )}
 
       <div className="section-title">{title}</div>
+
+      {/* 편집 모드: 종목 추가 검색 */}
+      {editMode && mode === 'theme' && selectedThemeId && (
+        <div className="stock-search-add" style={{ padding: '0 16px 12px', position: 'relative' }}>
+          <input
+            type="text"
+            className="stock-search-add-input"
+            placeholder="종목명 또는 코드로 검색해서 추가..."
+            value={stockSearch}
+            onChange={(e) => setStockSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+          />
+          {searchFocused && searchResults.length > 0 && (
+            <div className="search-dropdown">
+              {searchResults.map((r) => {
+                const alreadyAdded = stocks.some((s) => s.stock_code === r.stock_code);
+                return (
+                  <div
+                    key={r.stock_code}
+                    className={`search-result-item ${alreadyAdded ? 'disabled' : ''}`}
+                    onClick={() => !alreadyAdded && handleAddStock(r.stock_code)}
+                    style={alreadyAdded ? { opacity: 0.4, cursor: 'default' } : {}}
+                  >
+                    <span className="search-result-name">{r.stock_name}</span>
+                    <span className="search-result-code">{r.stock_code}</span>
+                    <span className="search-result-market">{alreadyAdded ? '✓ 추가됨' : r.market}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="empty-state">
@@ -153,6 +238,16 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
                   ? `${stock.change_pct >= 0 ? '+' : ''}${stock.change_pct.toFixed(2)}%`
                   : '-'}
               </div>
+              {editMode && mode === 'theme' && (
+                <button
+                  className="theme-edit-icon-btn theme-delete-btn"
+                  style={{ marginLeft: '8px', flexShrink: 0 }}
+                  onClick={(e) => { e.stopPropagation(); handleRemoveStock(stock.stock_code); }}
+                  title="테마에서 제거"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

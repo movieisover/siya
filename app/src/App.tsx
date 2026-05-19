@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './components/auth/AuthProvider';
 import LoginPage from './components/auth/LoginPage';
 import Header from './components/layout/Header';
@@ -7,6 +7,7 @@ import CenterPanel from './components/layout/CenterPanel';
 import RightPanel from './components/layout/RightPanel';
 import HelpPage from './components/common/HelpPage';
 import { useWatchlist } from './hooks/useWatchlist';
+import { useUserThemes } from './hooks/useUserThemes';
 import type { ScreenerFilters } from './types/stock';
 import './App.css';
 
@@ -19,7 +20,16 @@ function AppContent() {
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null);
   const [screenerFilters, setScreenerFilters] = useState<ScreenerFilters | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const watchlist = useWatchlist();
+  const userThemes = useUserThemes(user?.id ?? null);
+
+  // 최초 접속 시 기본 테마 복사
+  useEffect(() => {
+    if (user && !userThemes.loading && !userThemes.initialized && userThemes.themes.length === 0) {
+      userThemes.initializeFromDefaults();
+    }
+  }, [user, userThemes.loading, userThemes.initialized, userThemes.themes.length]);
 
   // 관심종목 토글
   function handleWatchToggle(code: string, currentlyWatched: boolean) {
@@ -63,6 +73,9 @@ function AppContent() {
           selectedThemeId={selectedThemeId}
           onThemeSelect={setSelectedThemeId}
           onFilterApply={setScreenerFilters}
+          editMode={editMode}
+          onEditModeToggle={() => setEditMode(!editMode)}
+          userThemes={userThemes}
         />
         <CenterPanel
           mode={mode}
@@ -71,6 +84,8 @@ function AppContent() {
           screenerFilters={screenerFilters}
           watchlistCodes={watchlist.codes}
           onStockSelect={setSelectedStockCode}
+          editMode={editMode}
+          userThemes={userThemes}
         />
         <RightPanel
           stockCode={selectedStockCode}

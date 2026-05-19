@@ -32,11 +32,11 @@ export function useThemeAnalysis(themeIds: number[]) {
     setLoading(true);
     const result: Record<number, ThemeAnalysis> = {};
 
-    // 각 테마에 매핑된 종목코드 조회
+    // 각 테마에 매핑된 종목코드 조회 (사용자별 개인화 테이블)
     const { data: allMappings } = await supabase
-      .from('stock_themes')
-      .select('theme_id, stock_code')
-      .in('theme_id', ids);
+      .from('user_stock_themes')
+      .select('user_theme_id, stock_code')
+      .in('user_theme_id', ids);
 
     if (!allMappings || allMappings.length === 0) {
       setAnalyses({});
@@ -47,8 +47,8 @@ export function useThemeAnalysis(themeIds: number[]) {
     // 테마별 종목코드 그룹핑
     const themeStocks: Record<number, string[]> = {};
     for (const m of allMappings) {
-      if (!themeStocks[m.theme_id]) themeStocks[m.theme_id] = [];
-      themeStocks[m.theme_id].push(m.stock_code);
+      if (!themeStocks[m.user_theme_id]) themeStocks[m.user_theme_id] = [];
+      themeStocks[m.user_theme_id].push(m.stock_code);
     }
 
     const allCodes = [...new Set(allMappings.map((m) => m.stock_code))];
@@ -151,14 +151,23 @@ export function useThemeStocks(themeId: number | null) {
     }
   }, [themeId]);
 
+  // 편집 모드에서 종목 추가/제거 시 리로드
+  useEffect(() => {
+    function handleChanged() {
+      if (themeId) loadThemeStocks(themeId);
+    }
+    window.addEventListener('theme-stocks-changed', handleChanged);
+    return () => window.removeEventListener('theme-stocks-changed', handleChanged);
+  }, [themeId]);
+
   async function loadThemeStocks(id: number) {
     setLoading(true);
 
-    // 1. 테마에 속한 종목코드
+    // 1. 테마에 속한 종목코드 (사용자별 개인화 테이블)
     const { data: mappings } = await supabase
-      .from('stock_themes')
+      .from('user_stock_themes')
       .select('stock_code')
-      .eq('theme_id', id);
+      .eq('user_theme_id', id);
 
     if (!mappings || mappings.length === 0) {
       setStocks([]);
