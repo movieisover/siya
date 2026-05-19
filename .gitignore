@@ -18,6 +18,9 @@ ENV/
 .env
 .env.local
 
+# KIS 토큰 캐시
+.kis_token_cache.json
+
 # 데이터
 *.csv
 *.xlsx
