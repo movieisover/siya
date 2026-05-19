@@ -102,7 +102,7 @@
 | 팀 리뷰 | ✅ 완료 | 기획서 v4 검토 완료, 개발 진행 확정 |
 
 ### Phase 2: 데이터 모델 설계 ✅ 완료
-- [x] DB 스키마 설계 (12개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist, disclosures, dividend_schedule)
+- [x] DB 스키마 설계 (14개 테이블: stocks, price_daily, valuation, financials, investor_trading, themes, stock_themes, technical, users, watchlist, disclosures, dividend_schedule, user_themes, user_stock_themes)
 - [x] 테마-종목 매핑 방식 확정 (반자동: 업종코드 1차 분류 → 수동 검수) → 실제 매핑 작업은 Phase 3 초반에 실행
 - [x] 데이터 수집 파이프라인 설계 (서버에서 수집 + 일일 자동 갱신)
 - [x] 업데이트 주기 및 방식 결정 (앱 실행 시 자동 + 수동 버튼)
@@ -437,20 +437,29 @@
 
 ### 2026-04-29: 테마 v3 초안 작성 + Task Scheduler UTF-8 수정
 
-#### 테마 v3 초안 (DB 미반영 — 팀 리뷰 후 일괄 반영 예정)
-- **상태**: 초안 작성 완료, **아직 Supabase에 실행하지 않음** ⚠️
-- **진행 방침**: 팀원들이 v3 docx 리뷰 → 피드백 수집 → 추가 수정 반영 → SQL 최종본 확정 → 그때 일괄 DB 반영
-- **v3 SQL을 팀 리뷰 없이 바로 실행하지 말 것!**
+#### 테마 v3 마이그레이션 + 개인화 ✅ 완료 (2026-05-19)
+- **v3 마이그레이션**: `docs/migrate_themes_v3.sql` 실행 완료
+  - 31개 테마 / 267개 매핑 / 카테고리 제거 (NULL)
+  - 신규 테마: 석유화학, 해운, 원자력, 지주사
+  - 우선주 편입: 삼성전자우→AI+반도체, 현대차2우B→자동차+수소
+  - 미매핑 TOP 100: 0개 (전원 해소)
+- **테마 개인화 기능**: 사용자별 테마/종목 커스터마이징 구현 완료
+  - DB: `user_themes` + `user_stock_themes` 테이블 (RLS 적용)
+  - 최초 로그인 시 기본 31개 테마 자동 복사
+  - 편집 모드: 테마 추가/삭제/이름변경 + 종목 검색 추가/제거
+  - 편집 완료 시 신뢰도/타이밍 자동 재계산
+  - 테마 목록 헤더 sticky (스크롤 시 상단 고정)
+- **검색 통일**: 헤더 검색 + 종목편집 검색 동일 로직 (2글자 이상, 제한 없음, 가나다순)
+- **카테고리 제거 배경**: 31개 테마로 분류 애매한 케이스 증가 + 개인화 시 사용자 카테고리 부담 → 제거 결정
 - **파일**:
-  - `docs/migrate_themes_v3.sql` — 마이그레이션 SQL 초안 (실행 금지)
-  - `docs/시야_테마종목_매핑현황_v3.docx` — 팀 리뷰용 문서 (30테마/196종목/258매핑)
-- **v3 변경 요약**:
-  - 테마 분리 3건: 화학/정유→정유+석유화학, 조선/해운→조선+해운, 원자력/전력→전력기기+원자력
-  - 신규 테마 3개: 석유화학, 해운, 원자력 (27→30)
-  - 신규 매핑 ~63개 (198→258)
-  - Claude 검토 의견: 원자력 13종목 비대(watch), 효성ITX 양자 근거 약함(confirm), 대한항공 미매핑 해소(good)
-- **다음 세션에서 할 일**:
-  - 팀 피드백 결과 확인 → v3 SQL 수정 → Supabase 백업 → SQL 실행 → 검증
+  - `docs/migrate_themes_v3.sql` — v3 마이그레이션 SQL (실행 완료)
+  - `docs/user_themes_schema.sql` — 개인화 테이블 스키마 (실행 완료)
+  - `docs/시야_테마종목_매핑현황_v3.docx` — 팀 리뷰 문서
+  - `app/src/hooks/useUserThemes.ts` — 사용자 테마 CRUD + 초기화 훅
+- **데이터 플로우 변경**:
+  - 기존: themes → stock_themes (시스템 공용)
+  - 변경: user_themes → user_stock_themes (사용자별 개인화)
+  - 기존 themes/stock_themes는 신규 사용자 초기화용 템플릿으로 유지
 
 #### Task Scheduler UTF-8 수정
 - **문제**: 4/29 16:30 자동 실행 시 이모지(⏳, ✅) 출력에서 cp949 인코딩 에러로 크래시
@@ -701,6 +710,7 @@ stock-analyzer/
 │   │   ├── types/         # TypeScript 타입 (database.ts, stock.ts)
 │   │   ├── hooks/
 │   │   │   ├── useThemeData.ts      # 테마 신뢰도/타이밍/종목 리스트 fetch 훅
+│   │   │   ├── useUserThemes.ts     # 사용자별 테마 CRUD + 초기화 훅
 │   │   │   ├── useScreenerStocks.ts # 스크리너 필터 적용 + 종합점수 계산 훅
 │   │   │   ├── useStockDetail.ts    # 종목 상세 + 업종 평균 fetch 훅
 │   │   │   ├── useChartData.ts      # 캔들차트 OHLCV 데이터 fetch 훅
