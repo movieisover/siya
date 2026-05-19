@@ -330,7 +330,7 @@
   - `daily_update.py`: pykrx 전종목 일괄 수집 → 10분만에 완료 (FDR 개별 호출 1시간+ → pykrx 날짜별 일괄로 최적화)
   - `.github/workflows/daily-update.yml`: 매일 KST 16:30 자동 실행 (월~금)
   - GitHub Secrets 3개 등록 (SUPABASE_URL, SUPABASE_SERVICE_KEY, DART_API_KEY)
-  - GitHub 리포지토리: https://github.com/movieisover/siya (Private)
+  - GitHub 리포지토리: https://github.com/movieisover/siya (Public — Actions 무제한)
 - **헤더 시세 기준일 표시**: "4월 8일 종가 기준" 배지 추가, 5분마다 자동 갱신
 - **종목 상세 데이터 날짜 표시**: 가격 아래에 "4월 8일(화) 기준" 표시 (실시간 대비용)
 - **pykrx 복구 확인**: 여전히 고장 (get_market_fundamental, get_market_trading_value_by_date 등)
