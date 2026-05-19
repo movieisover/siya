@@ -22,7 +22,16 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
   const [renameValue, setRenameValue] = useState('');
 
   const themeIds = useMemo(() => userThemes.themes.map((t) => t.id), [userThemes.themes]);
-  const { analyses, loading: analysisLoading } = useThemeAnalysis(themeIds);
+  const { analyses, loading: analysisLoading, reload: reloadAnalysis } = useThemeAnalysis(themeIds);
+  const [prevEditMode, setPrevEditMode] = useState(false);
+
+  // 편집 모드 해제 시 분석 재계산
+  useEffect(() => {
+    if (prevEditMode && !editMode) {
+      reloadAnalysis();
+    }
+    setPrevEditMode(editMode);
+  }, [editMode]);
 
   // 테마 추가
   async function handleAddTheme() {
@@ -60,13 +69,13 @@ export default function LeftPanel({ mode, selectedThemeId, onThemeSelect, onFilt
   if (mode === 'theme') {
     return (
       <aside className="panel left-panel">
-        <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="section-title left-panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>테마 목록 ({userThemes.themes.length})</span>
           <button
             className={`edit-mode-btn ${editMode ? 'active' : ''}`}
             onClick={onEditModeToggle}
           >
-            {editMode ? '✓ 편집 완료' : '테마 편집'}
+            {editMode ? '✓ 편집 완료' : '테마/종목 편집'}
           </button>
         </div>
 

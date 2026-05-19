@@ -39,9 +39,9 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
   const [searchFocused, setSearchFocused] = useState(false);
   const searchTimeout = useRef<any>(null);
 
-  // 종목 검색 디바운스
+  // 종목 검색 디바운스 (2글자 이상)
   useEffect(() => {
-    if (!stockSearch.trim()) {
+    if (!stockSearch.trim() || stockSearch.trim().length < 2) {
       setSearchResults([]);
       return;
     }
@@ -53,7 +53,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
         .select('stock_code, stock_name, market')
         .or(`stock_name.ilike.%${query}%,stock_code.ilike.%${query}%`)
         .eq('is_active', true)
-        .limit(10);
+        .order('stock_name');
       setSearchResults(data || []);
     }, 300);
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
@@ -143,7 +143,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
           <input
             type="text"
             className="stock-search-add-input"
-            placeholder="종목명 또는 코드로 검색해서 추가..."
+            placeholder="종목명 또는 코드 검색 (2글자 이상)"
             value={stockSearch}
             onChange={(e) => setStockSearch(e.target.value)}
             onFocus={() => setSearchFocused(true)}

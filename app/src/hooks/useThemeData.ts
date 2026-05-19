@@ -22,11 +22,16 @@ export interface ThemeAnalysis {
 export function useThemeAnalysis(themeIds: number[]) {
   const [analyses, setAnalyses] = useState<Record<number, ThemeAnalysis>>({});
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (themeIds.length === 0) return;
     loadAllThemeAnalyses(themeIds);
-  }, [themeIds.join(',')]);
+  }, [themeIds.join(','), refreshKey]);
+
+  function reload() {
+    setRefreshKey((k) => k + 1);
+  }
 
   async function loadAllThemeAnalyses(ids: number[]) {
     setLoading(true);
@@ -66,10 +71,7 @@ export function useThemeAnalysis(themeIds: number[]) {
     for (const themeId of ids) {
       const codes = themeStocks[themeId] || [];
       if (codes.length === 0) {
-        result[themeId] = {
-          reliability: calculateThemeReliability(themeId, 0, 0, 0),
-          timing: calculateThemeTiming(themeId, 50, 50),
-        };
+        // 종목이 없는 테마는 분석 데이터 없음 (ThemeCard에서 "데이터 없음"으로 표시)
         continue;
       }
 
@@ -134,7 +136,7 @@ export function useThemeAnalysis(themeIds: number[]) {
     setLoading(false);
   }
 
-  return { analyses, loading };
+  return { analyses, loading, reload };
 }
 
 // ── 테마 종목 리스트 (재무지표 포함) ──
