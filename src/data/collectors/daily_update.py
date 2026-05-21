@@ -5,6 +5,7 @@
 수행 작업:
   1. 최근 시세 수집 (KIS API 종목별 일봉, 최근 10거래일)
   2. PER/PBR 재계산 (최신 시세 + 재무제표)
+  2b. 우선주 재무데이터 복사 (보통주 → 우선주, PER/PBR 재계산)
   3. RSI/MACD 재계산 (최근 시세 기반)
   4. 기관/외국인 수급 수집 (한국투자증권 API)
 
@@ -252,6 +253,96 @@ def update_valuation():
 
 
 # ══════════════════════════════════════════════
+# Step 2b: 우선주 재무데이터 복사 (PER/PBR 재계산)
+# ══════════════════════════════════════════════
+
+# 우선주 → 보통주 매핑
+PREFERRED_TO_COMMON = {
+    '005935': '005930',  # 삼성전자우 → 삼성전자
+    '005387': '005380',  # 현대차 2우B → 현대차
+}
+
+
+def update_preferred_stocks():
+    """우선주에 보통주 재무데이터 복사 + 우선주 시세로 PER/PBR 재계산"""
+    print("=" * 60)
+    print(f"Step 2b: 우선주 재무데이터 복사 ({TODAY_STR})")
+    print("=" * 60)
+
+    for pref_code, common_code in PREFERRED_TO_COMMON.items():
+        try:
+            # 1. 보통주 최신 valuation 조회
+            common_val = supabase.table('valuation').select('*').eq(
+                'stock_code', common_code
+            ).order('trade_date', desc=True).limit(1).execute()
+
+            if not common_val.data:
+                print(f"  ⚠️ {common_code} valuation 없음")
+                continue
+
+            cv = common_val.data[0]
+
+            # 2. 우선주 최신 시세 조회
+            pref_price = supabase.table('price_daily').select(
+                'close, trade_date'
+            ).eq('stock_code', pref_code).order('trade_date', desc=True).limit(1).execute()
+
+            if not pref_price.data:
+                print(f"  ⚠️ {pref_code} 시세 없음")
+                continue
+
+            pref_close = pref_price.data[0]['close']
+            pref_date = pref_price.data[0]['trade_date']
+
+            # 3. 우선주 시세로 PER/PBR 재계산
+            eps = cv.get('eps')
+            bps = cv.get('bps')
+            per = round(pref_close / eps, 2) if eps and eps != 0 else None
+            pbr = round(pref_close / bps, 2) if bps and bps != 0 else None
+            if per is not None and per < 0:
+                per = 0
+
+            # 4. valuation upsert
+            supabase.table('valuation').upsert({
+                'stock_code': pref_code,
+                'trade_date': pref_date,
+                'per': per,
+                'pbr': pbr,
+                'eps': eps,
+                'bps': bps,
+                'dps': cv.get('dps'),
+                'div_yield': cv.get('div_yield'),
+                'source': 'calc_pref',
+            }, on_conflict='stock_code,trade_date').execute()
+
+            # 5. 보통주 최신 financials 복사
+            common_fin = supabase.table('financials').select('*').eq(
+                'stock_code', common_code
+            ).order('fiscal_year', desc=True).limit(3).execute()
+
+            for cf in (common_fin.data or []):
+                supabase.table('financials').upsert({
+                    'stock_code': pref_code,
+                    'fiscal_year': cf['fiscal_year'],
+                    'fiscal_quarter': cf['fiscal_quarter'],
+                    'revenue': cf.get('revenue'),
+                    'operating_income': cf.get('operating_income'),
+                    'net_income': cf.get('net_income'),
+                    'total_assets': cf.get('total_assets'),
+                    'total_equity': cf.get('total_equity'),
+                    'total_debt': cf.get('total_debt'),
+                    'source': 'copy_common',
+                }, on_conflict='stock_code,fiscal_year,fiscal_quarter').execute()
+
+            print(f"  ✅ {pref_code}: PER={per}, PBR={pbr}, close={pref_close:,}")
+
+        except Exception as e:
+            print(f"  ❌ {pref_code}: {e}")
+
+    print(f"✅ 우선주 처리 완료\n")
+
+
+# ══════════════════════════════════════════════
 # Step 3: RSI/MACD 재계산
 # ══════════════════════════════════════════════
 
@@ -441,6 +532,7 @@ if __name__ == '__main__':
 
     update_prices()
     update_valuation()
+    update_preferred_stocks()
     update_technical()
     update_investor()
 
