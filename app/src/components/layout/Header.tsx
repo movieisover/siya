@@ -130,7 +130,7 @@ export default function Header({ mode, onModeChange, onStockSelect, watchlistCou
 
   return (
     <header className="header">
-      <span className="header-logo">시야</span>
+      <span className="header-logo">시야 <span className="header-domain">stocksiya.com</span></span>
       {dataDate && (
         <span className="data-date-badge">
           {formatDataDate(dataDate)}
