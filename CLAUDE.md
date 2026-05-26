@@ -484,8 +484,15 @@
 - **우선주 재무데이터 복사**: 삼성전자우/현대차2우B ROE/ROA/부채비율 빈칸 문제 해결
   - `daily_update.py` Step 2b 추가: 보통주 financials(roe, roa, operating_margin, debt_ratio 포함) + valuation(PER/PBR 재계산) 복사
   - 우선주→보통주 매핑: PREFERRED_TO_COMMON 딕셔너리 (005935→005930, 005387→005380)
+  - **버그 수정**: `total_debt` → `total_liabilities` 컨럼명 오류 수정 (2026-05-27 push 완료, 다음 daily-update에서 자동 반영 예정)
 - **배당 수집 쿼리 타임아웃 수정**: get_latest_prices/get_latest_valuation_dates에서 ORDER BY 제거 → Python에서 날짜 비교 방식으로 변경
 - **배당 수집 timeout**: 60분 → 90분 증가
+
+#### 다음 세션에서 확인/진행할 사항
+1. **우선주 데이터 확인**: daily-update 자동 실행 후 삼성전자우(005935)/현대차2우B(005387) ROE/ROA/부채비율이 채워졌는지 확인
+2. **GitHub Actions daily-update 자동 실행 확인**: 5/26에 자동 실행 안 됨 (수동 실행도 실패) — 5/27 16:00에 정상 작동하는지 확인 필요
+3. **기관/외국인 수급 UI 검토**: 현재 수급 데이터는 테마 신뢰도 계산에만 내부적으로 사용 — 종목 상세에 수급 섹션 추가 여부 검토
+4. **베타 오픈 피드백 수집**: 페이스북 공유 후 사용자 피드백 반영
 
 ### 2026-04-28: GitHub Actions 한도 100% 도달 대응 + PER/PBR 버그 수정
 - **배경**: 4/27 GitHub Actions 월 2,000분 100% 사용 → 모든 워크플로우 실행 차단됨 (5/1 초기화까지)
