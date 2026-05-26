@@ -1713,6 +1713,8 @@
 .splash-modal {
   width: 440px;
   max-width: 92vw;
+  max-height: 90vh;
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 20px;
@@ -1765,9 +1767,9 @@
 .splash-features {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   text-align: left;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .splash-feature {

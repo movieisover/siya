@@ -47,14 +47,21 @@ export default function SplashModal({ onClose }: SplashModalProps) {
             <span className="splash-feature-icon">📊</span>
             <div>
               <strong>테마 분석</strong>
-              <p>31개 투자 테마별 신뢰도와 타이밍을 한눈에</p>
+              <p>투자 테마별 신뢰도와 진입 타이밍을 자동 평가</p>
             </div>
           </div>
           <div className="splash-feature">
             <span className="splash-feature-icon">🔍</span>
             <div>
-              <strong>스크리너</strong>
-              <p>PER, PBR, ROE 등 핵심 지표로 종목 필터링</p>
+              <strong>종목 스크리너</strong>
+              <p>나만의 기준으로 숨은 가치주를 발굴</p>
+            </div>
+          </div>
+          <div className="splash-feature">
+            <span className="splash-feature-icon">📢</span>
+            <div>
+              <strong>공시 모니터링</strong>
+              <p>매일 공시를 자동 수집하여 놓치지 않게</p>
             </div>
           </div>
           <div className="splash-feature">
@@ -79,7 +86,7 @@ export default function SplashModal({ onClose }: SplashModalProps) {
         </button>
 
         <p className="splash-footer">
-          KOSPI · KOSDAQ 2,773개 종목 | 매일 장 마감 후 자동 업데이트
+          stocksiya.com | KOSPI · KOSDAQ 2,773개 종목 | 매일 장 마감 후 자동 업데이트
         </p>
       </div>
     </div>
