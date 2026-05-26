@@ -6,6 +6,7 @@ import LeftPanel from './components/layout/LeftPanel';
 import CenterPanel from './components/layout/CenterPanel';
 import RightPanel from './components/layout/RightPanel';
 import HelpPage from './components/common/HelpPage';
+import SplashModal from './components/common/SplashModal';
 import { useWatchlist } from './hooks/useWatchlist';
 import { useUserThemes } from './hooks/useUserThemes';
 import type { ScreenerFilters } from './types/stock';
@@ -21,6 +22,9 @@ function AppContent() {
   const [screenerFilters, setScreenerFilters] = useState<ScreenerFilters | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => {
+    return !localStorage.getItem('siya_splash_seen');
+  });
   const watchlist = useWatchlist();
   const userThemes = useUserThemes(user?.id ?? null);
 
@@ -98,6 +102,7 @@ function AppContent() {
         />
       </div>
       {showHelp && <HelpPage onClose={() => setShowHelp(false)} />}
+      {showSplash && <SplashModal onClose={() => { localStorage.setItem('siya_splash_seen', '1'); setShowSplash(false); }} />}
     </div>
   );
 }
