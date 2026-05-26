@@ -331,6 +331,10 @@ def update_preferred_stocks():
                     'total_assets': cf.get('total_assets'),
                     'total_equity': cf.get('total_equity'),
                     'total_debt': cf.get('total_debt'),
+                    'roe': cf.get('roe'),
+                    'roa': cf.get('roa'),
+                    'operating_margin': cf.get('operating_margin'),
+                    'debt_ratio': cf.get('debt_ratio'),
                     'source': 'copy_common',
                 }, on_conflict='stock_code,fiscal_year,fiscal_quarter').execute()
 
