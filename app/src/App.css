@@ -78,11 +78,10 @@
 }
 
 .header-domain {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  letter-spacing: 0;
-  opacity: 0.7;
+  letter-spacing: 0.3px;
 }
 
 .data-date-badge {
@@ -1712,14 +1711,14 @@
 }
 
 .intro-chart-svg {
-  width: 420px;
-  max-width: 80vw;
+  width: 700px;
+  max-width: 90vw;
   height: auto;
 }
 
 .intro-line {
-  stroke-dasharray: 900;
-  stroke-dashoffset: 900;
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
   animation: intro-draw 1.6s ease-out 0.2s forwards;
 }
 
@@ -1739,7 +1738,7 @@
 }
 
 .intro-siya {
-  font-size: 32px;
+  font-size: 44px;
   font-weight: 800;
   color: var(--color-text);
   letter-spacing: -1px;

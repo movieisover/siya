@@ -25,11 +25,11 @@ export default function SplashModal({ onClose }: SplashModalProps) {
     <div className={`splash-overlay ${visible ? 'visible' : ''} ${closing ? 'closing' : ''}`}>
       {phase === 'chart' ? (
         <div className="intro-chart">
-          <svg viewBox="0 0 600 300" className="intro-chart-svg">
+          <svg viewBox="0 0 800 350" className="intro-chart-svg">
             {/* 그리드 라인 */}
-            <line x1="0" y1="75" x2="600" y2="75" stroke="rgba(74,158,255,0.08)" strokeWidth="1" />
-            <line x1="0" y1="150" x2="600" y2="150" stroke="rgba(74,158,255,0.08)" strokeWidth="1" />
-            <line x1="0" y1="225" x2="600" y2="225" stroke="rgba(74,158,255,0.08)" strokeWidth="1" />
+            <line x1="0" y1="87" x2="800" y2="87" stroke="rgba(74,158,255,0.06)" strokeWidth="1" />
+            <line x1="0" y1="175" x2="800" y2="175" stroke="rgba(74,158,255,0.06)" strokeWidth="1" />
+            <line x1="0" y1="262" x2="800" y2="262" stroke="rgba(74,158,255,0.06)" strokeWidth="1" />
 
             {/* 상승 차트 라인 — 그라데이션 영역 */}
             <defs>
@@ -45,25 +45,25 @@ export default function SplashModal({ onClose }: SplashModalProps) {
 
             {/* 영역 채우기 */}
             <path
-              d="M0,260 L60,240 L120,250 L180,220 L240,200 L300,180 L340,160 L380,120 L420,130 L460,90 L500,70 L540,50 L580,30 L600,20 L600,300 L0,300 Z"
+              d="M0,300 L50,290 L100,295 L150,280 L200,285 L250,270 L300,250 L350,240 L400,220 L440,200 L480,170 L520,150 L560,120 L600,130 L640,100 L680,70 L720,50 L760,35 L800,20 L800,350 L0,350 Z"
               fill="url(#chartGrad)"
               className="intro-area"
             />
 
             {/* 차트 라인 */}
             <path
-              d="M0,260 L60,240 L120,250 L180,220 L240,200 L300,180 L340,160 L380,120 L420,130 L460,90 L500,70 L540,50 L580,30 L600,20"
+              d="M0,300 L50,290 L100,295 L150,280 L200,285 L250,270 L300,250 L350,240 L400,220 L440,200 L480,170 L520,150 L560,120 L600,130 L640,100 L680,70 L720,50 L760,35 L800,20"
               fill="none"
               stroke="url(#lineGrad)"
-              strokeWidth="3"
+              strokeWidth="3.5"
               strokeLinecap="round"
               strokeLinejoin="round"
               className="intro-line"
             />
 
             {/* 끝점 빛나는 점 */}
-            <circle cx="600" cy="20" r="5" fill="#4F8EF7" className="intro-dot">
-              <animate attributeName="r" values="4;7;4" dur="1s" repeatCount="indefinite" />
+            <circle cx="800" cy="20" r="6" fill="#4F8EF7" className="intro-dot">
+              <animate attributeName="r" values="5;9;5" dur="1s" repeatCount="indefinite" />
               <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite" />
             </circle>
           </svg>
@@ -129,7 +129,7 @@ export default function SplashModal({ onClose }: SplashModalProps) {
               <span className="splash-feature-icon">🤖</span>
               <div>
                 <strong>시야 AI</strong>
-                <p>AI가 종목의 재무 · 기술적 지표를 종합 분석하여 핵심 투자 포인트를 요약합니다</p>
+                <p>시야 AI에게 물어보세요. 종목의 재무 분석부터 투자 포인트까지 대화로 알려드립니다</p>
               </div>
             </div>
           </div>
