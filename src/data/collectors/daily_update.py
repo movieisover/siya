@@ -330,7 +330,7 @@ def update_preferred_stocks():
                     'net_income': cf.get('net_income'),
                     'total_assets': cf.get('total_assets'),
                     'total_equity': cf.get('total_equity'),
-                    'total_debt': cf.get('total_debt'),
+                    'total_liabilities': cf.get('total_liabilities'),
                     'roe': cf.get('roe'),
                     'roa': cf.get('roa'),
                     'operating_margin': cf.get('operating_margin'),
