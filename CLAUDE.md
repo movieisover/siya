@@ -13,6 +13,7 @@
 ## 프로젝트 개요
 
 - **앱 이름**: 시야 (Siya)
+- **도메인**: stocksiya.com
 - **목표**: 한국 주식시장 가치/퀄리티 분석 PC 앱 개발
 - **투자 스타일**: 장기(6개월~) 가치/퀄리티 중심
 - **시작일**: 2025-02-04
@@ -171,7 +172,10 @@
 - [x] 실시간 현재가 조회 시도 → Edge Function 해외 IP라 KIS API 차단 확인 → 기능 제거 (2026-04-15)
 - [x] 한투 API 확장 — 배당 DPS/수익률 수집 완료 + 배당 일정(dividend_schedule) 수집 완료 (2026-04-16)
 - [ ] 상용화 시 실시간 검토 — 한국 서버 프록시 필요 (⬇️ 실시간 데이터 로드맵 참고)
-- [x] Vercel 커스텀 도메인 연결 (2026-04-17 완료)
+- [x] Vercel 커스텀 도메인 연결 — stocksiya.com (Namecheap 구매 + Vercel DNS + SSL, 2026-05-26 완료)
+- [x] 스플래시 화면 (2026-05-26) — 상승 차트 애니메이션 + 시야 소개 모달 + stocksiya.com 도메인 표시
+- [x] GitHub Public 전환 (2026-05-19) — Actions 무제한 + KIS 토큰 캐시 gitignore 추가
+- [x] 우선주 재무데이터 복사 (2026-05-26) — daily_update.py Step 2b 추가
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 - [ ] 사용자 피드백 반영
 - [ ] app/.env에서 VITE_ANTHROPIC_API_KEY 줄 삭제 (더 이상 필요 없음)
@@ -466,6 +470,23 @@
 - **수정**: `daily_collect.bat`에 `chcp 65001` + `PYTHONIOENCODING=utf-8` 추가
 - **결과**: 19:26 수동 재실행 시 정상 동작 확인 (exit: 0). 로그 한글 깨짐은 표시 문제일 뿐 데이터 수집은 정상
 
+### 2026-05-26: 베타 오픈 준비 — 스플래시 + 도메인 + 우선주 수정
+- **스플래시 화면 구현**: 첫 방문 시 인트로 애니메이션 + 소개 모달 표시
+  - 1단계: 상승 차트 SVG 라인 드로잉 애니메이션 (2초) + "시야" 텍스트 페이드인
+  - 2단계: 시야 소개 모달 (5개 기능: 테마분석, 스크리너, 공시모니터링, 나만의테마, 시야AI)
+  - localStorage로 최초 1회만 표시, "시작하기" 클릭 시 페이드아웃
+  - `app/src/components/common/SplashModal.tsx`
+- **도메인 확정**: stocksiya.com
+  - Namecheap에서 구매 (프로모션 반값)
+  - Vercel DNS 연결: A Record (@→216.198.79.1) + CNAME (www→vercel-dns)
+  - SSL 자동 발급 완료
+  - 헤더에 stocksiya.com 병기 (시야 옆에 표시)
+- **우선주 재무데이터 복사**: 삼성전자우/현대차2우B ROE/ROA/부채비율 빈칸 문제 해결
+  - `daily_update.py` Step 2b 추가: 보통주 financials(roe, roa, operating_margin, debt_ratio 포함) + valuation(PER/PBR 재계산) 복사
+  - 우선주→보통주 매핑: PREFERRED_TO_COMMON 딕셔너리 (005935→005930, 005387→005380)
+- **배당 수집 쿼리 타임아웃 수정**: get_latest_prices/get_latest_valuation_dates에서 ORDER BY 제거 → Python에서 날짜 비교 방식으로 변경
+- **배당 수집 timeout**: 60분 → 90분 증가
+
 ### 2026-04-28: GitHub Actions 한도 100% 도달 대응 + PER/PBR 버그 수정
 - **배경**: 4/27 GitHub Actions 월 2,000분 100% 사용 → 모든 워크플로우 실행 차단됨 (5/1 초기화까지)
 - **대응**: 5/1까지 PC 수동 실행으로 전환
@@ -720,7 +741,7 @@ stock-analyzer/
 │   │   │   ├── auth/      # AuthProvider, LoginPage
 │   │   │   ├── layout/    # Header, LeftPanel, CenterPanel, RightPanel
 │   │   │   ├── stock-detail/ # CandleChart, DisclosureTab
-│   │   │   └── common/    # Tooltip, HelpPage
+│   │   │   └── common/    # Tooltip, HelpPage, SplashModal
 │   └── src-tauri/         # Tauri (Rust) 설정
 │       ├── tauri.conf.json
 │       └── Cargo.toml
