@@ -102,7 +102,8 @@ export interface AiMessage {
 export async function askSiyaAi(
   question: string,
   stockDetail: StockDetailData,
-  history: AiMessage[]
+  history: AiMessage[],
+  signal?: AbortSignal
 ): Promise<string> {
   const stockContext = buildStockContext(stockDetail);
 
@@ -111,16 +112,29 @@ export async function askSiyaAi(
     { role: 'user' as const, content: question },
   ];
 
-  const { data, error } = await supabase.functions.invoke('siya-ai', {
-    body: {
+  const { data: { session } } = await supabase.auth.getSession();
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const funcUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/siya-ai`;
+
+  const res = await fetch(funcUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token || anonKey}`,
+      'apikey': anonKey,
+    },
+    body: JSON.stringify({
       system: `${SYSTEM_PROMPT}\n\n---\n\n${stockContext}`,
       messages,
-    },
+    }),
+    signal,
   });
 
-  if (error) {
-    throw new Error(`시야 AI 오류: ${error.message}`);
+  if (!res.ok) {
+    throw new Error(`시야 AI 오류: ${res.status} ${res.statusText}`);
   }
+
+  const data = await res.json();
 
   if (data?.error) {
     throw new Error(`Claude API 오류: ${data.error}`);

@@ -858,6 +858,7 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevStockRef = useRef<string>(stockDetail.stock.stock_code);
+  const abortRef = useRef<AbortController | null>(null);
 
   // 종목 변경 시 대화 초기화
   useEffect(() => {
@@ -885,13 +886,27 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
     setMessages(updatedMessages);
     setLoading(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const reply = await askSiyaAi(q, stockDetail, messages);
+      const reply = await askSiyaAi(q, stockDetail, messages, controller.signal);
       setMessages([...updatedMessages, { role: 'assistant', content: reply }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'AI 응답 오류');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // 사용자가 중지한 경우 — 에러 표시 없이 조용히 끝냄기
+      } else {
+        setError(err instanceof Error ? err.message : 'AI 응답 오류');
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
+    }
+  }
+
+  function handleStop() {
+    if (abortRef.current) {
+      abortRef.current.abort();
     }
   }
 
@@ -924,7 +939,15 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
         {messages.map((msg, i) => (
           <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
             <div className="ai-msg-label">{msg.role === 'user' ? '나' : '시야'}</div>
-            <div className="ai-msg-content">{msg.content}</div>
+            <div className="ai-msg-content">
+              {msg.content.replace(/\n{3,}/g, '\n\n').split('\n\n').map((para, j) => (
+                <p key={j} className="ai-para">
+                  {para.split('\n').map((line, k) => (
+                    <span key={k}>{k > 0 && <br />}{line}</span>
+                  ))}
+                </p>
+              ))}
+            </div>
           </div>
         ))}
 
@@ -953,13 +976,17 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
           rows={2}
           disabled={loading}
         />
-        <button
-          className="ai-send-btn"
-          onClick={() => handleSend()}
-          disabled={loading || !input.trim()}
-        >
-          전송
-        </button>
+        {loading ? (
+          <button className="ai-stop-btn" onClick={handleStop}>■ 중지</button>
+        ) : (
+          <button
+            className="ai-send-btn"
+            onClick={() => handleSend()}
+            disabled={!input.trim()}
+          >
+            전송
+          </button>
+        )}
       </div>
     </div>
   );
