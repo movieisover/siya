@@ -851,28 +851,78 @@ const QUICK_QUESTIONS = [
   '최근 실적 추세는?',
 ];
 
+// localStorage 대화 저장 (종목당 최근 20개 메시지, 최대 50개 종목)
+const AI_STORAGE_KEY = 'siya-ai-chats';
+const MAX_MESSAGES = 20;
+const MAX_STOCKS = 50;
+
+interface ChatStore {
+  [stockCode: string]: { messages: AiMessage[]; lastAccess: number };
+}
+
+function loadChatStore(): ChatStore {
+  try {
+    const raw = localStorage.getItem(AI_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveChatMessages(stockCode: string, messages: AiMessage[]) {
+  try {
+    const store = loadChatStore();
+    store[stockCode] = {
+      messages: messages.slice(-MAX_MESSAGES),
+      lastAccess: Date.now(),
+    };
+    // 50개 초과 시 가장 오래된 종목 삭제
+    const codes = Object.keys(store);
+    if (codes.length > MAX_STOCKS) {
+      codes.sort((a, b) => store[a].lastAccess - store[b].lastAccess)
+        .slice(0, codes.length - MAX_STOCKS)
+        .forEach(c => delete store[c]);
+    }
+    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(store));
+  } catch { /* localStorage 용량 초과 등 무시 */ }
+}
+
+function loadChatMessages(stockCode: string): AiMessage[] {
+  return loadChatStore()[stockCode]?.messages || [];
+}
+
+function clearChatMessages(stockCode: string) {
+  try {
+    const store = loadChatStore();
+    delete store[stockCode];
+    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(store));
+  } catch {}
+}
+
 function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stockName: string }) {
-  const [messages, setMessages] = useState<AiMessage[]>([]);
+  const stockCode = stockDetail.stock.stock_code;
+  const [messages, setMessages] = useState<AiMessage[]>(() => loadChatMessages(stockCode));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const prevStockRef = useRef<string>(stockDetail.stock.stock_code);
+  const prevStockRef = useRef<string>(stockCode);
   const abortRef = useRef<AbortController | null>(null);
 
-  // 종목 변경 시 대화 초기화
+  // 종목 변경 시 해당 종목 대화 불러오기
   useEffect(() => {
-    if (prevStockRef.current !== stockDetail.stock.stock_code) {
-      setMessages([]);
+    if (prevStockRef.current !== stockCode) {
+      setMessages(loadChatMessages(stockCode));
       setError(null);
-      prevStockRef.current = stockDetail.stock.stock_code;
+      prevStockRef.current = stockCode;
     }
-  }, [stockDetail.stock.stock_code]);
+  }, [stockCode]);
 
-  // 메시지 추가 시 스크롤
+  // 메시지 변경 시 localStorage 저장 + 스크롤
   useEffect(() => {
+    if (messages.length > 0) {
+      saveChatMessages(stockCode, messages);
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, stockCode]);
 
   async function handleSend(question?: string) {
     const q = question || input.trim();
@@ -894,7 +944,7 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
       setMessages([...updatedMessages, { role: 'assistant', content: reply }]);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // 사용자가 중지한 경우 — 에러 표시 없이 조용히 끝냄기
+        // 사용자가 중지한 경우
       } else {
         setError(err instanceof Error ? err.message : 'AI 응답 오류');
       }
@@ -908,6 +958,12 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
     if (abortRef.current) {
       abortRef.current.abort();
     }
+  }
+
+  function handleClear() {
+    clearChatMessages(stockCode);
+    setMessages([]);
+    setError(null);
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -933,6 +989,16 @@ function AiTab({ stockDetail, stockName }: { stockDetail: StockDetailData; stock
                 </button>
               ))}
             </div>
+            <div className="ai-storage-notice">
+              💬 대화는 종목별로 최근 {MAX_MESSAGES}개, 최대 {MAX_STOCKS}개 종목까지 브라우저에 저장됩니다
+            </div>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="ai-chat-header">
+            <span className="ai-chat-count">💬 {messages.length}개 메시지</span>
+            <button className="ai-clear-btn" onClick={handleClear}>대화 삭제</button>
           </div>
         )}
 
