@@ -6,7 +6,7 @@ import type { AppMode } from '../../App';
 import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
-import { useInvestorData, type InvestorSummary, type InvestorDayData } from '../../hooks/useInvestorData';
+import { useInvestorData } from '../../hooks/useInvestorData';
 
 interface RightPanelProps {
   stockCode: string | null;
