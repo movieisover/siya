@@ -1548,6 +1548,10 @@
   padding-bottom: 4px;
 }
 
+.supply-row.supply-header-row .supply-col {
+  text-align: center;
+}
+
 .supply-col {
   text-align: right;
   font-variant-numeric: tabular-nums;

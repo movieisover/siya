@@ -635,15 +635,13 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
             <div key={d.trade_date} className="supply-row">
               <span className="supply-col supply-col-date">{formatDate(d.trade_date)}</span>
               <span className={`supply-col supply-col-val ${d.inst_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
-                {formatBil(d.inst_net_buy)}
-                {d.inst_net_qty !== 0 && (
-                  <span className="supply-qty">{formatQty(d.inst_net_qty)}</span>
+                {formatBil(d.inst_net_buy)}원{d.inst_net_qty !== 0 && (
+                  <span className="supply-qty">/ {formatQty(d.inst_net_qty)}</span>
                 )}
               </span>
               <span className={`supply-col supply-col-val ${d.foreign_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
-                {formatBil(d.foreign_net_buy)}
-                {d.foreign_net_qty !== 0 && (
-                  <span className="supply-qty">{formatQty(d.foreign_net_qty)}</span>
+                {formatBil(d.foreign_net_buy)}원{d.foreign_net_qty !== 0 && (
+                  <span className="supply-qty">/ {formatQty(d.foreign_net_qty)}</span>
                 )}
               </span>
               <span className="supply-col supply-col-price">
