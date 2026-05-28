@@ -1426,6 +1426,12 @@
 }
 
 /* ── 차트 모드 토글 ── */
+
+/* lightweight-charts 워터마크 숨김 */
+.chart-container a[href*="tradingview"],
+.chart-container div[style*="bottom: 1px"] a {
+  display: none !important;
+}
 .chart-mode-toggle {
   display: flex;
   gap: 2px;
@@ -1481,6 +1487,13 @@
   width: 8px;
   height: 8px;
   border-radius: 2px;
+}
+
+.supply-legend-line {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
 }
 
 /* ── 수급 요약 카드 ── */
