@@ -55,11 +55,19 @@ def parse_investor_rows(stock_code, items, target_dates=None):
         foreign_net = int(frgn_val) if frgn_val else 0
         inst_net = int(orgn_val) if orgn_val else 0
 
+        # 수량 (주)
+        frgn_qty = item.get('frgn_ntby_qty', '').strip()
+        orgn_qty = item.get('orgn_ntby_qty', '').strip()
+        foreign_net_qty = int(frgn_qty) if frgn_qty else 0
+        inst_net_qty = int(orgn_qty) if orgn_qty else 0
+
         rows.append({
             'stock_code': stock_code,
             'trade_date': trade_date,
             'inst_net_buy': inst_net,
             'foreign_net_buy': foreign_net,
+            'inst_net_qty': inst_net_qty,
+            'foreign_net_qty': foreign_net_qty,
             'source': 'kis_api',
         })
     return rows

@@ -6,6 +6,8 @@ export interface InvestorDayData {
   trade_date: string;
   inst_net_buy: number;   // 기관 순매수 (백만원)
   foreign_net_buy: number; // 외국인 순매수 (백만원)
+  inst_net_qty: number;    // 기관 순매수 (주)
+  foreign_net_qty: number; // 외국인 순매수 (주)
   close: number | null;
   change_pct: number | null;
 }
@@ -15,6 +17,10 @@ export interface InvestorSummary {
   inst_20d: number;
   foreign_5d: number;
   foreign_20d: number;
+  inst_5d_qty: number;
+  inst_20d_qty: number;
+  foreign_5d_qty: number;
+  foreign_20d_qty: number;
   inst_streak: number;   // 연속 매수일 (음수=매도)
   foreign_streak: number;
 }
@@ -53,7 +59,7 @@ export function useInvestorData(stockCode: string | null) {
       const [invRes, priceRes] = await Promise.all([
         supabase
           .from('investor_trading')
-          .select('trade_date, inst_net_buy, foreign_net_buy')
+          .select('trade_date, inst_net_buy, foreign_net_buy, inst_net_qty, foreign_net_qty')
           .eq('stock_code', stockCode)
           .order('trade_date', { ascending: false })
           .limit(60),
@@ -79,6 +85,8 @@ export function useInvestorData(stockCode: string | null) {
           trade_date: d.trade_date,
           inst_net_buy: d.inst_net_buy || 0,
           foreign_net_buy: d.foreign_net_buy || 0,
+          inst_net_qty: d.inst_net_qty || 0,
+          foreign_net_qty: d.foreign_net_qty || 0,
           close: price?.close ?? null,
           change_pct: price?.change_pct ?? null,
         };
@@ -90,6 +98,11 @@ export function useInvestorData(stockCode: string | null) {
       const frgn5 = daily.slice(0, 5).reduce((s, d) => s + d.foreign_net_buy, 0);
       const frgn20 = daily.slice(0, 20).reduce((s, d) => s + d.foreign_net_buy, 0);
 
+      const inst5q = daily.slice(0, 5).reduce((s, d) => s + d.inst_net_qty, 0);
+      const inst20q = daily.slice(0, 20).reduce((s, d) => s + d.inst_net_qty, 0);
+      const frgn5q = daily.slice(0, 5).reduce((s, d) => s + d.foreign_net_qty, 0);
+      const frgn20q = daily.slice(0, 20).reduce((s, d) => s + d.foreign_net_qty, 0);
+
       const instStreak = calcStreak(daily.map((d) => d.inst_net_buy));
       const frgnStreak = calcStreak(daily.map((d) => d.foreign_net_buy));
 
@@ -100,6 +113,10 @@ export function useInvestorData(stockCode: string | null) {
           inst_20d: inst20,
           foreign_5d: frgn5,
           foreign_20d: frgn20,
+          inst_5d_qty: inst5q,
+          inst_20d_qty: inst20q,
+          foreign_5d_qty: frgn5q,
+          foreign_20d_qty: frgn20q,
           inst_streak: instStreak,
           foreign_streak: frgnStreak,
         },

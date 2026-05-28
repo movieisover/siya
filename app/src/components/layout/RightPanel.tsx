@@ -564,6 +564,11 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
     return streak > 0 ? `연속 ${streak}일 매수` : `연속 ${Math.abs(streak)}일 매도`;
   }
 
+  function formatQty(val: number): string {
+    if (Math.abs(val) >= 10000) return (val / 10000).toFixed(1) + '만주';
+    return val.toLocaleString() + '주';
+  }
+
   function formatDate(d: string): string {
     return d.slice(5).replace('-', '/');
   }
@@ -587,7 +592,7 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
         <div className="supply-card">
           <div className="supply-card-label">기관 5일</div>
           <div className={`supply-card-value ${summary.inst_5d >= 0 ? 'metric-good' : 'metric-warning'}`}>
-            {formatBil(summary.inst_5d)}
+            {formatBil(summary.inst_5d)} <span className="supply-qty">/ {formatQty(summary.inst_5d_qty)}</span>
           </div>
           {summary.inst_streak !== 0 && (
             <div className="supply-card-streak">{streakText(summary.inst_streak)}</div>
@@ -596,7 +601,7 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
         <div className="supply-card">
           <div className="supply-card-label">외국인 5일</div>
           <div className={`supply-card-value ${summary.foreign_5d >= 0 ? 'metric-good' : 'metric-warning'}`}>
-            {formatBil(summary.foreign_5d)}
+            {formatBil(summary.foreign_5d)} <span className="supply-qty">/ {formatQty(summary.foreign_5d_qty)}</span>
           </div>
           {summary.foreign_streak !== 0 && (
             <div className="supply-card-streak">{streakText(summary.foreign_streak)}</div>
@@ -605,13 +610,13 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
         <div className="supply-card">
           <div className="supply-card-label">기관 20일</div>
           <div className={`supply-card-value ${summary.inst_20d >= 0 ? 'metric-good' : 'metric-warning'}`}>
-            {formatBil(summary.inst_20d)}
+            {formatBil(summary.inst_20d)} <span className="supply-qty">/ {formatQty(summary.inst_20d_qty)}</span>
           </div>
         </div>
         <div className="supply-card">
           <div className="supply-card-label">외국인 20일</div>
           <div className={`supply-card-value ${summary.foreign_20d >= 0 ? 'metric-good' : 'metric-warning'}`}>
-            {formatBil(summary.foreign_20d)}
+            {formatBil(summary.foreign_20d)} <span className="supply-qty">/ {formatQty(summary.foreign_20d_qty)}</span>
           </div>
         </div>
       </div>
@@ -631,9 +636,15 @@ function SupplySection({ data }: { data: import('../../hooks/useInvestorData').I
               <span className="supply-col supply-col-date">{formatDate(d.trade_date)}</span>
               <span className={`supply-col supply-col-val ${d.inst_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
                 {formatBil(d.inst_net_buy)}
+                {d.inst_net_qty !== 0 && (
+                  <span className="supply-qty">{formatQty(d.inst_net_qty)}</span>
+                )}
               </span>
               <span className={`supply-col supply-col-val ${d.foreign_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
                 {formatBil(d.foreign_net_buy)}
+                {d.foreign_net_qty !== 0 && (
+                  <span className="supply-qty">{formatQty(d.foreign_net_qty)}</span>
+                )}
               </span>
               <span className="supply-col supply-col-price">
                 {d.close ? d.close.toLocaleString() : '-'}

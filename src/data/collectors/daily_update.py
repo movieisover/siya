@@ -485,11 +485,17 @@ def update_investor():
                     continue
 
                 trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+
+                frgn_qty = item.get('frgn_ntby_qty', '').strip()
+                orgn_qty = item.get('orgn_ntby_qty', '').strip()
+
                 all_rows.append({
                     'stock_code': code,
                     'trade_date': trade_date,
                     'inst_net_buy': int(orgn_val) if orgn_val else 0,
                     'foreign_net_buy': int(frgn_val) if frgn_val else 0,
+                    'inst_net_qty': int(orgn_qty) if orgn_qty else 0,
+                    'foreign_net_qty': int(frgn_qty) if frgn_qty else 0,
                     'source': 'kis_api',
                 })
 

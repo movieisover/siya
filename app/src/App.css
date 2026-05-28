@@ -1565,6 +1565,11 @@
   min-width: 0;
 }
 
+.supply-qty {
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
 .supply-col-price {
   width: 70px;
   flex-shrink: 0;
