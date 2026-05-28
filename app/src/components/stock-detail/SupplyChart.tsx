@@ -80,9 +80,7 @@ export default function SupplyChart({ stockCode, stockName, height = 300, isModa
       sliced.map((d) => ({
         time: d.trade_date,
         value: d.inst_net_buy,
-        color: d.inst_net_buy >= 0
-          ? 'rgba(34, 197, 94, 0.7)'
-          : 'rgba(239, 68, 68, 0.5)',
+        color: 'rgba(34, 197, 94, 0.7)',
       }))
     );
 
