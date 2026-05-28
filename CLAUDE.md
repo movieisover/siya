@@ -178,6 +178,8 @@
 - [x] 우선주 재무데이터 복사 (2026-05-26) — daily_update.py Step 2b 추가
 - [x] 시야 AI 개선 (2026-05-27) — 답변 빈줄 축소 + 중지 버튼 + localStorage 대화 저장(종목별 20개, 50종목)
 - [x] 기관/외국인 수급 UI (2026-05-27) — 중앙 시세/수급 차트 토글 + 우측 요약 카드 + 일별 테이블
+- [x] 수급 차트 개선 (2026-05-28) — 막대+꿐은선 분리, 모달 버튼 수정, 워터마크 제거, 색상 통일
+- [x] 수급 수량 데이터 (2026-05-28) — DB 컨럼 + 수집 코드 + UI 금액/수량 병기
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 - [ ] 사용자 피드백 반영
 - [ ] app/.env에서 VITE_ANTHROPIC_API_KEY 줄 삭제 (더 이상 필요 없음)
@@ -471,6 +473,45 @@
 - **문제**: 4/29 16:30 자동 실행 시 이모지(⏳, ✅) 출력에서 cp949 인코딩 에러로 크래시
 - **수정**: `daily_collect.bat`에 `chcp 65001` + `PYTHONIOENCODING=utf-8` 추가
 - **결과**: 19:26 수동 재실행 시 정상 동작 확인 (exit: 0). 로그 한글 깨짐은 표시 문제일 뿐 데이터 수집은 정상
+
+### 2026-05-28: 수급 차트 개선 + 수량 데이터 추가
+
+#### 수급 차트 버그 수정 (3건)
+- **막대 겹침 해결**: 기관+외국인 모두 HistogramSeries로 그려 색이 겹치던 문제 → 기관=막대(HistogramSeries), 외국인=꿐은선(LineSeries)으로 분리
+- **확대 모달 버튼 중첩**: 모달 내 재귀 렌더링으로 확대 버튼(⛶) 중복 표시 → `isModal` prop 추가, 모달에서 확대 버튼 숨김
+- **TradingView 워터마크**: 캔들+수급 차트 모두 `attributionLogo: false` + CSS 백업으로 제거
+- **기관 막대 색상 통일**: 양수=초록/음수=빨강 → 전부 초록으로 통일 (방향으로 매수/매도 구분)
+
+#### 수급 수량(물량) 데이터 추가
+- **배경**: KIS API `FHKST01010900` 응답에 수량 필드(`orgn_ntby_qty`, `frgn_ntby_qty`)가 이미 포함되어 있으나 미수집 상태
+- **검증**: `test_investor_fields.py`로 삼성전자 5/27 데이터 확인 — 기관 +155만주(+4,953억), 외국인 -27.4만주(-809억)
+- **DB**: `investor_trading` 테이블에 `inst_net_qty`, `foreign_net_qty` bigint 컨럼 추가
+- **수집 코드**: `collect_investor_kis.py` + `daily_update.py` — 수량 필드 추가 저장 (추가 API 호출 없음)
+- **초기 수집**: `python collect_investor_kis.py --days 30` 실행 → 최근 30일 수량 데이터 전체 채워짐
+- **UI 표시**:
+  - 요약 카드: "-206억 / 15.3만주" (금액과 동일 크기, "/" 구분자)
+  - 일별 테이블: "-79억원 / 5.2만주" ("원" + "/" 구분자)
+  - 테이블 헤더 중앙 정렬
+- **의사결정**: 금액 vs 물량 — 금액이 기본(종목간 비교 가능), 물량은 보조 정보로 병기
+
+#### Chrome 브라우저 연결
+- Claude in Chrome 확장 프로그램 연결 성공 (stocksiya.com 스크린샷 확인 가능)
+- 단, stocksiya.com 도메인에 JS 실행 권한 필요 (navigate/JS는 permission denied 발생)
+
+#### 파일 변경
+- `app/src/components/stock-detail/SupplyChart.tsx` — 막대+꿐은선 분리, isModal prop, 워터마크 제거, 색상 통일
+- `app/src/hooks/useInvestorData.ts` — 수량 필드 추가 (InvestorDayData, InvestorSummary)
+- `app/src/components/layout/RightPanel.tsx` — 카드/테이블에 수량 병기 + 헤더 정렬
+- `app/src/App.css` — 워터마크 CSS, 수량 스타일, 헤더 중앙정렬
+- `src/data/collectors/collect_investor_kis.py` — 수량 필드 저장
+- `src/data/collectors/daily_update.py` — 수량 필드 저장
+- `app/src/components/stock-detail/CandleChart.tsx` — 워터마크 중복 제거
+
+#### 다음 세션에서 확인/진행할 사항
+1. **수급 모드에서 MA 토글 숨김 확인**: 수급 차트 선택 시 이동평균선 버튼이 숨겨지는지 (현재 CandleChart 내부 처리로 자동 숨겨지는지 확인 필요)
+2. **localStorage 대화 저장 미스터리**: 동철님이 커밋 후 stocksiya.com에서 대화했으나 localStorage에 데이터 없음 — 원인 조사 필요
+3. **우선주 데이터 확인**: daily-update 자동 실행 후 삼성전자우/현대차2우B ROE/ROA/부채비율 채워졌는지
+4. **베타 오픈 피드백 수집**
 
 ### 2026-05-27: 시야 AI 개선 3건 + 기관/외국인 수급 UI
 
