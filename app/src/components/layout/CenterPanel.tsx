@@ -7,6 +7,7 @@ import { useWatchlistStocks } from '../../hooks/useWatchlistStocks';
 import type { useUserThemes } from '../../hooks/useUserThemes';
 import { supabase } from '../../lib/supabase';
 import CandleChart from '../stock-detail/CandleChart';
+import SupplyChart from '../stock-detail/SupplyChart';
 
 interface CenterPanelProps {
   mode: AppMode;
@@ -32,6 +33,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
 
   const [sortKey, setSortKey] = useState<SortKey>('total_score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [chartMode, setChartMode] = useState<'candle' | 'supply'>('candle');
 
   // 편집 모드: 종목 검색
   const [stockSearch, setStockSearch] = useState('');
@@ -124,11 +126,33 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
     <main className="panel center-panel">
       {selectedStockCode && (
         <div className="center-chart-area">
-          <CandleChart
-            stockCode={selectedStockCode}
-            stockName={stocks.find((s) => s.stock_code === selectedStockCode)?.stock_name}
-            height={300}
-          />
+          <div className="chart-mode-toggle">
+            <button
+              className={`chart-mode-btn ${chartMode === 'candle' ? 'active' : ''}`}
+              onClick={() => setChartMode('candle')}
+            >
+              시세
+            </button>
+            <button
+              className={`chart-mode-btn ${chartMode === 'supply' ? 'active' : ''}`}
+              onClick={() => setChartMode('supply')}
+            >
+              수급
+            </button>
+          </div>
+          {chartMode === 'candle' ? (
+            <CandleChart
+              stockCode={selectedStockCode}
+              stockName={stocks.find((s) => s.stock_code === selectedStockCode)?.stock_name}
+              height={300}
+            />
+          ) : (
+            <SupplyChart
+              stockCode={selectedStockCode}
+              stockName={stocks.find((s) => s.stock_code === selectedStockCode)?.stock_name}
+              height={300}
+            />
+          )}
         </div>
       )}
 

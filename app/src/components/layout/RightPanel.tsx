@@ -6,6 +6,7 @@ import type { AppMode } from '../../App';
 import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
+import { useInvestorData, type InvestorSummary, type InvestorDayData } from '../../hooks/useInvestorData';
 
 interface RightPanelProps {
   stockCode: string | null;
@@ -19,6 +20,7 @@ interface RightPanelProps {
 
 export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate }: RightPanelProps) {
   const { data, loading } = useStockDetail(stockCode, mode, selectedThemeId);
+  const { data: investorData } = useInvestorData(stockCode);
   const [activeTab, setActiveTab] = useState<'detail' | 'ai' | 'disclosure'>('detail');
   const [memoInput, setMemoInput] = useState('');
   const [memoEditing, setMemoEditing] = useState(false);
@@ -338,6 +340,9 @@ KRX 공식 업종 분류 기준 (테마와는 별개)
             <CompetitorsSection data={competitors} />
           )}
 
+          {/* 기관/외국인 수급 */}
+          {investorData && <SupplySection data={investorData} />}
+
           {/* 배당 일정 */}
           <DividendSection dividends={dividends} />
         </div>
@@ -541,6 +546,108 @@ function formatNum(v: number | null): string {
 }
 
 // ── 배당 일정 ──
+
+// ── 기관/외국인 수급 ──
+
+function SupplySection({ data }: { data: import('../../hooks/useInvestorData').InvestorData }) {
+  const { summary, daily } = data;
+  const recent10 = daily.slice(0, 10);
+
+  function formatBil(val: number): string {
+    const bil = val / 100; // 백만원 → 억
+    if (Math.abs(bil) >= 10000) return (bil / 10000).toFixed(1) + '조';
+    return Math.round(bil).toLocaleString() + '억';
+  }
+
+  function streakText(streak: number): string {
+    if (streak === 0) return '';
+    return streak > 0 ? `연속 ${streak}일 매수` : `연속 ${Math.abs(streak)}일 매도`;
+  }
+
+  function formatDate(d: string): string {
+    return d.slice(5).replace('-', '/');
+  }
+
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">
+        기관/외국인 수급
+        <Tooltip text={`기관과 외국인 투자자의 순매수 동향입니다.
+
+요약 카드: 최근 5일 / 20일 누적 순매수 금액
+초록(양수) = 순매수, 빨강(음수) = 순매도
+
+하단 테이블: 최근 10거래일 일별 상세
+
+데이터: 한국투자증권 API, 매일 16:00 자동 갱신`} />
+      </div>
+
+      {/* 요약 카드 2x2 */}
+      <div className="supply-grid">
+        <div className="supply-card">
+          <div className="supply-card-label">기관 5일</div>
+          <div className={`supply-card-value ${summary.inst_5d >= 0 ? 'metric-good' : 'metric-warning'}`}>
+            {formatBil(summary.inst_5d)}
+          </div>
+          {summary.inst_streak !== 0 && (
+            <div className="supply-card-streak">{streakText(summary.inst_streak)}</div>
+          )}
+        </div>
+        <div className="supply-card">
+          <div className="supply-card-label">외국인 5일</div>
+          <div className={`supply-card-value ${summary.foreign_5d >= 0 ? 'metric-good' : 'metric-warning'}`}>
+            {formatBil(summary.foreign_5d)}
+          </div>
+          {summary.foreign_streak !== 0 && (
+            <div className="supply-card-streak">{streakText(summary.foreign_streak)}</div>
+          )}
+        </div>
+        <div className="supply-card">
+          <div className="supply-card-label">기관 20일</div>
+          <div className={`supply-card-value ${summary.inst_20d >= 0 ? 'metric-good' : 'metric-warning'}`}>
+            {formatBil(summary.inst_20d)}
+          </div>
+        </div>
+        <div className="supply-card">
+          <div className="supply-card-label">외국인 20일</div>
+          <div className={`supply-card-value ${summary.foreign_20d >= 0 ? 'metric-good' : 'metric-warning'}`}>
+            {formatBil(summary.foreign_20d)}
+          </div>
+        </div>
+      </div>
+
+      {/* 일별 테이블 */}
+      {recent10.length > 0 && (
+        <div className="supply-table">
+          <div className="supply-row supply-header-row">
+            <span className="supply-col supply-col-date">날짜</span>
+            <span className="supply-col supply-col-val">기관</span>
+            <span className="supply-col supply-col-val">외국인</span>
+            <span className="supply-col supply-col-price">종가</span>
+            <span className="supply-col supply-col-change">등락</span>
+          </div>
+          {recent10.map((d) => (
+            <div key={d.trade_date} className="supply-row">
+              <span className="supply-col supply-col-date">{formatDate(d.trade_date)}</span>
+              <span className={`supply-col supply-col-val ${d.inst_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
+                {formatBil(d.inst_net_buy)}
+              </span>
+              <span className={`supply-col supply-col-val ${d.foreign_net_buy >= 0 ? 'change-up' : 'change-down'}`}>
+                {formatBil(d.foreign_net_buy)}
+              </span>
+              <span className="supply-col supply-col-price">
+                {d.close ? d.close.toLocaleString() : '-'}
+              </span>
+              <span className={`supply-col supply-col-change ${(d.change_pct ?? 0) >= 0 ? 'change-up' : 'change-down'}`}>
+                {d.change_pct !== null ? `${d.change_pct >= 0 ? '+' : ''}${d.change_pct.toFixed(2)}%` : '-'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function DividendSection({ dividends }: { dividends: DividendItem[] }) {
   if (dividends.length === 0) {

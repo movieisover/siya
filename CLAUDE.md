@@ -176,6 +176,8 @@
 - [x] 스플래시 화면 (2026-05-26) — 상승 차트 애니메이션 + 시야 소개 모달 + stocksiya.com 도메인 표시
 - [x] GitHub Public 전환 (2026-05-19) — Actions 무제한 + KIS 토큰 캐시 gitignore 추가
 - [x] 우선주 재무데이터 복사 (2026-05-26) — daily_update.py Step 2b 추가
+- [x] 시야 AI 개선 (2026-05-27) — 답변 빈줄 축소 + 중지 버튼 + localStorage 대화 저장(종목별 20개, 50종목)
+- [x] 기관/외국인 수급 UI (2026-05-27) — 중앙 시세/수급 차트 토글 + 우측 요약 카드 + 일별 테이블
 - [ ] PC 앱 배포 (Tauri exe) — 웹 배포 1~2주 사용 후
 - [ ] 사용자 피드백 반영
 - [ ] app/.env에서 VITE_ANTHROPIC_API_KEY 줄 삭제 (더 이상 필요 없음)
@@ -470,6 +472,36 @@
 - **수정**: `daily_collect.bat`에 `chcp 65001` + `PYTHONIOENCODING=utf-8` 추가
 - **결과**: 19:26 수동 재실행 시 정상 동작 확인 (exit: 0). 로그 한글 깨짐은 표시 문제일 뿐 데이터 수집은 정상
 
+### 2026-05-27: 시야 AI 개선 3건 + 기관/외국인 수급 UI
+
+#### 시야 AI 개선 (3건)
+- **답변 빈줄 축소**: `white-space: pre-wrap` 제거, `\n\n`으로 분리해 `<p>` 문단 렌더링 (간격 ~21px → 8px)
+- **중지 버튼**: `ai.ts`에 AbortSignal 지원 추가 (`supabase.functions.invoke` → raw `fetch` 전환), 로딩 중 "■ 중지" 빨간 버튼 표시
+- **대화 localStorage 저장**: 종목별 최근 20개 메시지, 최대 50개 종목까지 브라우저에 저장
+  - 종목 전환 시 해당 종목 대화 불러오기 (기존: 초기화)
+  - "대화 삭제" 버튼 + "💬 N개 메시지" 표시
+  - 웰컴 화면에 저장 정책 안내 문구 추가
+  - DB 대신 localStorage 선택 이유: 테이블 추가/용량 관리 부담 없음, 새로고침/재시작에도 유지
+- **파일**: `ai.ts`, `RightPanel.tsx`, `App.css`
+
+#### 기관/외국인 수급 UI
+- **배경**: investor_trading 데이터가 테마 신뢰도 계산에만 내부 사용 중 → 종목 상세에 수급 정보 노출 필요
+- **네이버증권 비교 검토**: 네이버 투자자별 매매동향 화면 참조 → 시야 스타일로 적용
+- **중앙 패널 차트 토글**: `시세` | `수급` 버튼으로 캔들차트/수급차트 전환
+  - 시세 모드: 캔들차트 + MA 토글 + 골든/데드크로스 뱃지
+  - 수급 모드: 기관(초록)/외국인(파랑) 순매수 막대차트 + MA 토글 숨김
+  - 기간 선택(1M/3M/6M/1Y), 확대 버튼 공유
+- **우측 패널 수급 섹션** (경쟁사↔배당 사이):
+  - 요약 카드 2xd72: 기관 5일/20일 + 외국인 5일/20일 누적 순매수 (양수=초록, 음수=빨강)
+  - "연속 N일 매수/매도" 상태 표시
+  - 일별 테이블 최근 10거래일 (날짜 | 기관 | 외국인 | 종가 | 등락률)
+- **파일**:
+  - `app/src/hooks/useInvestorData.ts` (새 파일) — 수급 데이터 fetch + 요약 계산
+  - `app/src/components/stock-detail/SupplyChart.tsx` (새 파일) — lightweight-charts 막대차트
+  - `app/src/components/layout/CenterPanel.tsx` — 시세/수급 토글
+  - `app/src/components/layout/RightPanel.tsx` — SupplySection 컴포넌트
+  - `app/src/App.css` — 차트 토글, 수급 카드/테이블 스타일
+
 ### 2026-05-26: 베타 오픈 준비 — 스플래시 + 도메인 + 우선주 수정
 - **스플래시 화면 구현**: 첫 방문 시 인트로 애니메이션 + 소개 모달 표시
   - 1단계: 상승 차트 SVG 라인 드로잉 애니메이션 (2초) + "시야" 텍스트 페이드인
@@ -489,10 +521,12 @@
 - **배당 수집 timeout**: 60분 → 90분 증가
 
 #### 다음 세션에서 확인/진행할 사항
-1. **우선주 데이터 확인**: daily-update 자동 실행 후 삼성전자우(005935)/현대차2우B(005387) ROE/ROA/부채비율이 채워졌는지 확인
-2. **GitHub Actions daily-update 자동 실행 확인**: 5/26에 자동 실행 안 됨 (수동 실행도 실패) — 5/27 16:00에 정상 작동하는지 확인 필요
-3. **기관/외국인 수급 UI 검토**: 현재 수급 데이터는 테마 신뢰도 계산에만 내부적으로 사용 — 종목 상세에 수급 섹션 추가 여부 검토
-4. **베타 오픈 피드백 수집**: 페이스북 공유 후 사용자 피드백 반영
+1. **수급 UI 테스트**: 수급 차트(중앙) + 요약 카드/테이블(우측) 정상 표시 확인, 데이터 정합성 검증
+2. **시세/수급 토글 시 MA 토글 숨김 확인**: 수급 모드에서 이동평균선 버튼이 숨겨지는지 (CandleChart 내부 처리)
+3. **시야 AI 개선 확인**: 빈줄 축소 + 중지 버튼 + 대화 유지 정상 동작 확인
+4. **우선주 데이터 확인**: daily-update 자동 실행 후 삼성전자우(005935)/현대차2우B(005387) ROE/ROA/부채비율 채워졌는지
+5. **GitHub Actions 자동 실행 확인**: 5/27 16:00 정상 작동 여부
+6. **베타 오픈 피드백 수집**: 사용자 피드백 반영
 
 ### 2026-04-28: GitHub Actions 한도 100% 도달 대응 + PER/PBR 버그 수정
 - **배경**: 4/27 GitHub Actions 월 2,000분 100% 사용 → 모든 워크플로우 실행 차단됨 (5/1 초기화까지)
@@ -743,11 +777,12 @@ stock-analyzer/
 │   │   │   ├── useStockDetail.ts    # 종목 상세 + 업종 평균 fetch 훅
 │   │   │   ├── useChartData.ts      # 캔들차트 OHLCV 데이터 fetch 훅
 │   │   │   ├── useWatchlist.ts      # 관심종목 CRUD 훅
-│   │   │   └── useWatchlistStocks.ts # 관심종목 종목 데이터 fetch 훅
+│   │   │   ├── useWatchlistStocks.ts # 관심종목 종목 데이터 fetch 훅
+│   │   │   └── useInvestorData.ts    # 기관/외국인 수급 데이터 fetch 훅
 │   │   ├── components/
 │   │   │   ├── auth/      # AuthProvider, LoginPage
 │   │   │   ├── layout/    # Header, LeftPanel, CenterPanel, RightPanel
-│   │   │   ├── stock-detail/ # CandleChart, DisclosureTab
+│   │   │   ├── stock-detail/ # CandleChart, SupplyChart, DisclosureTab
 │   │   │   └── common/    # Tooltip, HelpPage, SplashModal
 │   └── src-tauri/         # Tauri (Rust) 설정
 │       ├── tauri.conf.json
