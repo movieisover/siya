@@ -474,6 +474,25 @@
 - **수정**: `daily_collect.bat`에 `chcp 65001` + `PYTHONIOENCODING=utf-8` 추가
 - **결과**: 19:26 수동 재실행 시 정상 동작 확인 (exit: 0). 로그 한글 깨짐은 표시 문제일 뿐 데이터 수집은 정상
 
+### 2026-06-01: 동종업계 비교 UI 개선 + 배당수익률 표시 버그 수정
+
+#### 동종업계 비교 개선 (4건)
+- **데이터 현황 표 출처 정정**: HelpPage 데이터 현황 표의 종목 마스터/업종 출처를 "KRX (한국거래소)" → "FinanceDataReader (KRX 상장정보 기준)"로 변경.
+  - 업종(sector)은 `update_sector.py`에서 KRX 직접 API(400 에러)가 아닌 **FDR `StockListing('KRX-DESC')` Industry** 필드로 수집됨. KIS API는 업종 분류 미제공 → KIS로 바꾸면 오류.
+  - 단, "KRX 공식 업종 분류" 용어(분류 기준 설명)는 실제 KRX 표준 업종분류이므로 정확 → 그대로 유지.
+- **초록/노랑 막대 의미 설명 추가**: 초록=업종 평균보다 우수, 노랑=열위 (ROE는 높을수록·PER/PBR은 낮을수록 우수). HelpPage 동종업계 비교 섹션 + 인라인 툴팁 양쪽 반영.
+- **업종 평균선 개선**: 노랑(`#eab308`) → **흰색 3px + 어두운 외곽선/그림자**. 마커 위에 "평균 OO" 라벨 추가 (가장자리 0~12%/88~100% clamp). 노란 막대 위 노란 평균선이 안 보이던 문제 해결.
+- **음수 평균 clamp**: `ComparisonBar`의 barPercent/avgPercent를 `Math.max(0, …)`로 하한 처리. 업종 평균 ROE가 음수(예: 삼성전자 KRX 업종 "통신 및 방송 장비 제조업"의 적자 소형주 평균)면 마커가 `left: 음수%`로 화면 밖으로 밀려 안 보이던 문제 → 왼쪽 끝(0%) 고정 + 실제값("평균 -3.2%") 표시.
+- **범례 가독성**: 10px → 12px, 색 밝게(`#b4b9c8`), 평균선 표식 흰색 통일. "| = 업종 평균" → "업종 평균".
+
+#### 배당수익률 카드 빈칸 버그 수정
+- **증상**: 종목 상세 배당수익률 카드가 배당 수집일(월요일) 외에는 "-"로 표시.
+- **원인**: 상세는 valuation 최신 1행만 조회하는데, `daily_update.py`의 `update_valuation()`이 매일 새 valuation 행을 만들면서 dps/div_yield를 안 넣음(NULL). 배당 수집(`collect_dividends_kis.py`)은 주 1회 월요일에 그날 최신 행에만 div_yield UPDATE → 화요일부터 NULL 행이 최신이 되어 카드가 빔.
+- **수정**: `daily_update.py`에 `get_latest_dps_map()` 추가(최근 30일 내 종목별 최신 DPS), `update_valuation()`에서 매일 새 행에 **div_yield = DPS ÷ 당일 종가 × 100**으로 재계산해 dps/div_yield 같이 저장(carry-forward). 종가 변동도 매일 반영.
+- **적용 시점**: 다음 daily_update 실행분부터. 확인 완료.
+- **교훈**: valuation은 (stock_code, trade_date) 단위 행이므로, 매일 새 행을 만드는 일일 갱신은 주 1회만 들어오는 배당 같은 필드를 임의로 carry-forward해야 한다. (역: 배당 수집은 새 행 INSERT 금지 — 기존 원칙과 쌍).
+- **파일**: `app/src/App.css`, `app/src/components/layout/RightPanel.tsx`, `app/src/components/common/HelpPage.tsx`, `src/data/collectors/daily_update.py`
+
 ### 2026-05-28: 수급 차트 개선 + 수량 데이터 추가
 
 #### 수급 차트 버그 수정 (3건)
