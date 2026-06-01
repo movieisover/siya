@@ -992,6 +992,7 @@
   background: var(--color-border);
   border-radius: 4px;
   overflow: visible;
+  margin-top: 16px; /* 평균값 라벨 공간 확보 */
 }
 
 .comparison-fill {
@@ -1002,42 +1003,61 @@
 
 .comparison-avg-line {
   position: absolute;
-  top: -2px;
-  width: 2px;
-  height: 12px;
-  background: var(--color-yellow);
+  top: -3px;
+  width: 3px;
+  height: 14px;
+  background: #fff;
   border-radius: 1px;
-  transform: translateX(-1px);
+  transform: translateX(-1.5px);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.comparison-avg-label {
+  position: absolute;
+  top: -15px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .comparison-legend {
   display: flex;
   gap: 16px;
-  margin-top: 8px;
-  font-size: 10px;
-  color: var(--color-text-secondary);
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #b4b9c8;
+}
+
+.comparison-legend span {
+  display: inline-flex;
+  align-items: center;
 }
 
 .legend-bar::before {
   content: '';
   display: inline-block;
-  width: 10px;
-  height: 6px;
+  width: 12px;
+  height: 7px;
   background: var(--color-text-secondary);
   border-radius: 2px;
-  margin-right: 4px;
+  margin-right: 5px;
   vertical-align: middle;
 }
 
 .legend-line::before {
   content: '';
   display: inline-block;
-  width: 2px;
-  height: 10px;
-  background: var(--color-yellow);
+  width: 3px;
+  height: 12px;
+  background: #fff;
   border-radius: 1px;
-  margin-right: 4px;
+  margin-right: 5px;
   vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 /* ── 경쟁사 개별 비교 ── */

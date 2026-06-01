@@ -151,7 +151,13 @@ export default function HelpPage({ onClose }: HelpPageProps) {
           <section className="help-section">
             <h3>🏢 동종업계 비교</h3>
             <p>같은 산업에 속한 다른 기업들과 비교하여 이 종목이 얼마나 뛰어난지 보여줍니다.</p>
-            <p>바가 노란 선(업종 평균)을 넘으면 업종 평균보다 우수한 것입니다.</p>
+            <p><strong>막대 색깔</strong>은 업종 평균 대비 우열을 나타냅니다:</p>
+            <div className="help-grades">
+              <span className="help-grade help-grade-green">🟢 초록 막대 — 업종 평균보다 우수</span>
+              <span className="help-grade help-grade-yellow">🟡 노랑 막대 — 업종 평균보다 열위</span>
+            </div>
+            <p>우열의 방향은 지표 특성을 반영합니다. ROE는 <strong>높을수록</strong>, PER·PBR은 <strong>낮을수록</strong> 우수합니다. 예를 들어 PER이 업종 평균보다 낮으면 초록(우수)으로 표시됩니다.</p>
+            <p><strong>흰 세로선</strong>은 업종 평균 위치이며, 선 위에 평균값이 함께 표시됩니다. 막대가 흰 선을 우수한 방향으로 넘으면 평균을 앞선 것입니다.</p>
             <table className="help-table">
               <thead><tr><th>구분</th><th>동종업계 비교</th><th>테마</th></tr></thead>
               <tbody>
@@ -227,13 +233,13 @@ export default function HelpPage({ onClose }: HelpPageProps) {
               <tbody>
                 <tr>
                   <td>종목 마스터</td>
-                  <td>KRX (한국거래소)</td>
+                  <td>FinanceDataReader (KRX 상장정보 기준)</td>
                   <td><span className="data-badge data-badge-manual">수동 (필요 시)</span></td>
                   <td>종목명, 코드</td>
                 </tr>
                 <tr>
                   <td>업종</td>
-                  <td>KRX (한국거래소)</td>
+                  <td>FinanceDataReader (KRX 상장정보 기준)</td>
                   <td><span className="data-badge data-badge-manual">수동 (필요 시)</span></td>
                   <td>업종 표시</td>
                 </tr>

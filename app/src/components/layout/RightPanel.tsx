@@ -290,11 +290,13 @@ MACD: 상승 = 상승 추세 / 하락 = 하락 추세
               <div className="detail-section-title">
               동종업계 비교
               <Tooltip text={`동종업계 비교는 같은 산업에 속한 다른 기업들과
-비교하여 이 종목이 얼마나 뛰어난지 보여줍니다.
+비교해 이 종목의 우열을 보여줍니다.
+(KRX 공식 업종 분류 기준 — 테마와는 별개)
 
-KRX 공식 업종 분류 기준 (테마와는 별개)
-바 = 종목값, 노란 선 = 업종 평균
-바가 노란 선을 넘으면 업종 평균보다 우수
+막대 = 종목값 / 흰 세로선 = 업종 평균
+🟢 초록 막대 = 업종 평균보다 우수
+🟡 노랑 막대 = 업종 평균보다 열위
+(ROE는 높을수록, PER·PBR은 낮을수록 우수)
 
 데이터: 화면 표시 시 자체 계산`} />
             </div>
@@ -329,8 +331,8 @@ KRX 공식 업종 분류 기준 (테마와는 별개)
                 )}
               </div>
               <div className="comparison-legend">
-                <span className="legend-bar">바 = 종목값</span>
-                <span className="legend-line">| = 업종 평균</span>
+                <span className="legend-bar">막대 = 종목값</span>
+                <span className="legend-line">업종 평균</span>
               </div>
             </div>
           )}
@@ -942,6 +944,10 @@ function ComparisonBar({ label, value, avg, unit = '', maxVal, betterWhen }: {
   const isBetter = betterWhen === 'higher' ? value >= avg : value <= avg;
   const barColor = isBetter ? 'var(--color-green)' : 'var(--color-yellow)';
 
+  // 평균값 라벨이 트랙 양 끝에서 잘리지 않도록 정렬 보정
+  const avgLabelTransform =
+    avgPercent < 12 ? 'translateX(0)' : avgPercent > 88 ? 'translateX(-100%)' : 'translateX(-50%)';
+
   return (
     <div className="comparison-item">
       <div className="comparison-label">
@@ -951,6 +957,12 @@ function ComparisonBar({ label, value, avg, unit = '', maxVal, betterWhen }: {
         </span>
       </div>
       <div className="comparison-track">
+        <div
+          className="comparison-avg-label"
+          style={{ left: `${avgPercent}%`, transform: avgLabelTransform }}
+        >
+          평균 {avg}{unit}
+        </div>
         <div className="comparison-fill" style={{ width: `${barPercent}%`, background: barColor }} />
         <div className="comparison-avg-line" style={{ left: `${avgPercent}%` }} />
       </div>
