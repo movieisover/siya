@@ -939,8 +939,9 @@ function ComparisonBar({ label, value, avg, unit = '', maxVal, betterWhen }: {
   maxVal: number;
   betterWhen: 'higher' | 'lower';
 }) {
-  const barPercent = maxVal > 0 ? Math.min((value / maxVal) * 100, 100) : 0;
-  const avgPercent = maxVal > 0 ? Math.min((avg / maxVal) * 100, 100) : 0;
+  const barPercent = maxVal > 0 ? Math.max(0, Math.min((value / maxVal) * 100, 100)) : 0;
+  // 평균이 음수(예: 적자 업종의 평균 ROE)면 0%로 고정해 트랙 왼쪽 끝에 표시
+  const avgPercent = maxVal > 0 ? Math.max(0, Math.min((avg / maxVal) * 100, 100)) : 0;
   const isBetter = betterWhen === 'higher' ? value >= avg : value <= avg;
   const barColor = isBetter ? 'var(--color-green)' : 'var(--color-yellow)';
 

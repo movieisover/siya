@@ -48,6 +48,32 @@ def get_all_stocks():
     return stocks
 
 
+def get_latest_dps_map():
+    """
+    종목별 최신 DPS 맵 (배당 carry-forward용).
+    daily_update가 매일 새 valuation 행을 만들 때 dps/div_yield가 NULL로 빠져
+    상세 화면(최신 행 1건 조회)에서 배당수익률이 '-'로 뜨는 문제 방지.
+    최근 30일 내 dps가 채워진 행 중 종목별 최신값 사용 (div_yield는 당일 종가로 재계산).
+    """
+    cutoff = (TODAY - timedelta(days=30)).strftime('%Y-%m-%d')
+    dps_map = {}
+    offset = 0
+    while True:
+        res = supabase.table('valuation').select(
+            'stock_code, dps, trade_date'
+        ).gte('dps', 0).gte('trade_date', cutoff).order(
+            'trade_date', desc=True
+        ).range(offset, offset + 999).execute()
+        for r in res.data:
+            code = r['stock_code']
+            if code not in dps_map:  # 날짜 내림차순이므로 첫 등장이 최신
+                dps_map[code] = r['dps']
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return dps_map
+
+
 # ══════════════════════════════════════════════
 # Step 1: 최근 시세 수집 (KIS API 종목별 일봉)
 # ══════════════════════════════════════════════
@@ -195,6 +221,9 @@ def update_valuation():
             break
         offset += 1000
 
+    dps_map = get_latest_dps_map()
+    print(f"  배당 DPS: {len(dps_map)}개 종목")
+
     success = 0
     rows = []
 
@@ -231,7 +260,7 @@ def update_valuation():
         if per is not None and per < 0:
             per = 0
 
-        rows.append({
+        row = {
             'stock_code': code,
             'trade_date': trade_date,
             'per': per,
@@ -239,7 +268,15 @@ def update_valuation():
             'eps': round(eps, 2) if eps else None,
             'bps': round(bps, 2) if bps else None,
             'source': 'calc'
-        })
+        }
+
+        # 배당 carry-forward: 최신 DPS를 당일 종가로 div_yield 재계산해 새 행에도 채움
+        dps = dps_map.get(code)
+        if dps is not None:
+            row['dps'] = dps
+            row['div_yield'] = round(dps / close * 100, 2) if (dps > 0 and close > 0) else 0
+
+        rows.append(row)
         success += 1
 
     if rows:
