@@ -127,3 +127,9 @@ resize 이벤트도 감지해 태블릿 가로/세로 전환 대응.
 - **PWA iOS**: beforeinstallprompt 없음 → 3단계 수동 안내. HTTPS 필수
 - **설치 유도 재표시**: localStorage.removeItem('siya_install_dismissed') 로 초기화 가능
 - **standalone 감지**: display-mode: standalone + navigator.standalone(iOS) 두 가지 모두 체크
+- **LoginPage.tsx / MobileHeader.tsx 수정 시 블랙화면 발생** (2026-06-02, 미해결)
+  - 빌드 성공, 런타임 에러, 에러 바운더리도 안 잡힘, 코드/인코딩 정상
+  - 원인 미파악. 다음 시도 방향: 이 두 파일 대신 MobileApp.tsx에 직접 구현
+- **index.html 한글 금지** (2026-06-02, 교훈)
+  - 한글 포함 시 인코딩 깨짐 → JS 실행 불가 → 흰 화면
+  - index.html에는 영문자만 사용할 것
