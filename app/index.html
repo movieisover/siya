@@ -20,36 +20,15 @@
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
   </head>
   <body>
-    <!-- 전역 에러 캐처 — 흔지 화면 원인 파악용 -->
-    <script>
-      window.onerror = function(msg, src, line, col, err) {
-        document.getElementById('root').innerHTML =
-          '<div style="padding:20px;color:#ef4444;background:#0f1117;font-family:monospace;font-size:13px;min-height:100vh">' +
-          '<b style="font-size:16px">시야 로드 오류</b><br><br>' +
-          (msg || '') + '<br><br>' +
-          (src || '') + ' :' + line + ':' + col + '<br><br>' +
-          (err && err.stack ? err.stack.slice(0,500) : '') +
-          '</div>';
-      };
-      window.addEventListener('unhandledrejection', function(e) {
-        document.getElementById('root').innerHTML =
-          '<div style="padding:20px;color:#ef4444;background:#0f1117;font-family:monospace;font-size:13px;min-height:100vh">' +
-          '<b style="font-size:16px">시야 Promise 오류</b><br><br>' +
-          (e.reason && e.reason.message ? e.reason.message : String(e.reason)) +
-          '</div>';
-      });
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Service Worker 등록 -->
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function() {});
         });
       }
-      // PWA 설치 프롬프트 저장
-      window.addEventListener('beforeinstallprompt', (e) => {
+      window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         window.__installPrompt = e;
       });
