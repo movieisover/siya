@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 
+// beforeinstallprompt 이벤트 타입 (브라우저 표준 미포함이라 직접 선언)
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -15,8 +16,10 @@ export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProp
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
+    // iOS 감지
     setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
 
+    // 안드로이드 — 설치 프롬프트 이벤트 캐치
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
@@ -30,12 +33,15 @@ export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProp
     setInstalling(true);
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') onDismiss();
+    if (outcome === 'accepted') {
+      onDismiss();
+    }
     setInstalling(false);
   }
 
   return (
     <div className="install-screen">
+      {/* 앱 아이콘 */}
       <div className="install-icon">
         <img src="/icon-512.svg" alt="시야 아이콘" />
       </div>
@@ -48,6 +54,7 @@ export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProp
       </p>
 
       {isIOS ? (
+        /* iOS — 직접 설치 안내 */
         <div className="install-ios-guide">
           <div className="install-step">
             <span className="install-step-num">1</span>
@@ -66,14 +73,19 @@ export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProp
           </div>
         </div>
       ) : installPrompt ? (
-        <button className="install-btn" onClick={handleInstall} disabled={installing}>
-          {installing ? '설치 중...' : '홈 화면에 설치하기'}
+        /* 안드로이드 — 원클릭 설치 */
+        <button
+          className="install-btn"
+          onClick={handleInstall}
+          disabled={installing}
+        >
+          {installing ? '설치 중...' : '📲 홈 화면에 설치'}
         </button>
       ) : (
-        <div className="install-manual">
-          <p>브라우저 메뉴(<strong>⋮</strong>)에서 <strong>홈 화면에 추가</strong>를 선택하세요</p>
-          <p className="install-manual-sub">크롬 브라우저에서는 자동 설치 버튼이 제공됩니다</p>
-        </div>
+        /* 이미 설치됐거나 지원 안 되는 브라우저 */
+        <p className="install-already">
+          이미 설치되어 있거나 브라우저에서 설치를 지원하지 않습니다.
+        </p>
       )}
 
       <button className="install-skip" onClick={onDismiss}>

@@ -1,49 +1,15 @@
-import { useState, Component } from 'react';
-import React from 'react';
+import { useState } from 'react';
 import MobileHeader from './MobileHeader';
 import MobileTabBar from './MobileTabBar';
 import MobileThemeView from './MobileThemeView';
 import MobileScreenerView from './MobileScreenerView';
 import MobileWatchlistView from './MobileWatchlistView';
 import MobileStockDetail from './MobileStockDetail';
+import MobileInstallGuide from './MobileInstallGuide';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import HelpPage from '../common/HelpPage';
 import type { AppMode } from '../../App';
 import '../../mobile.css';
-
-// 에러 바운더리
-class MobileErrorBoundary extends Component<
-  { children: React.ReactNode },
-  { error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 24, color: '#ef4444', background: '#0f1117', minHeight: '100vh', fontFamily: 'monospace', fontSize: 13 }}>
-          <div style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}>시야 오류</div>
-          <div>{this.state.error.message}</div>
-          <div style={{ marginTop: 8, color: '#8b8fa3', whiteSpace: 'pre-wrap' }}>
-            {this.state.error.stack?.slice(0, 600)}
-          </div>
-          <button
-            style={{ marginTop: 20, padding: '10px 20px', background: '#4a9eff', color: 'white', border: 'none', borderRadius: 8, fontSize: 14 }}
-            onClick={() => window.location.reload()}
-          >
-            새로고침
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 export type MobileTab = 'theme' | 'screener' | 'watchlist' | 'disclosure';
 
@@ -54,21 +20,25 @@ const TAB_MODE_MAP: Record<MobileTab, AppMode> = {
   disclosure: 'theme',
 };
 
-// standalone 모드(설치됨) 여부
-function checkStandalone(): boolean {
-  try {
-    return window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  } catch { return false; }
-}
-
-function MobileAppInner() {
+export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<MobileTab>('theme');
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null);
   const [selectedStockName, setSelectedStockName] = useState<string | undefined>(undefined);
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const isStandalone = checkStandalone();
+
+  // 설치 유도: 이미 standalone(설치됨) 또는 이전에 "계속" 선택한 경우 스킵
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const [showInstall, setShowInstall] = useState(
+    !isStandalone && !localStorage.getItem('siya_install_dismissed')
+  );
+
+  function handleInstallDismiss() {
+    localStorage.setItem('siya_install_dismissed', '1');
+    setShowInstall(false);
+  }
 
   function handleTabChange(tab: MobileTab) {
     setActiveTab(tab);
@@ -88,13 +58,23 @@ function MobileAppInner() {
 
   const currentMode: AppMode = TAB_MODE_MAP[activeTab];
 
+  // ── 설치 유도 화면 ──
+  if (showInstall) {
+    return (
+      <div className="mobile-app">
+        <MobileInstallGuide onDismiss={handleInstallDismiss} />
+      </div>
+    );
+  }
+
+  // ── 주 화면 ──
   return (
     <div className="mobile-app">
+      {/* 종목 상세일 때는 헤더 숨김 (상세 내부 뒤로가기 바 사용) */}
       {!selectedStockCode && (
         <MobileHeader
-          onSearchOpen={() => {}}
+          onSearchOpen={() => {/* 검색 — 추후 구현 */}}
           onHelpOpen={() => setShowHelp(true)}
-          showInstallBanner={!isStandalone}
         />
       )}
 
@@ -139,19 +119,12 @@ function MobileAppInner() {
         )}
       </main>
 
+      {/* 종목 상세일 때는 탭바 숨김 */}
       {!selectedStockCode && (
         <MobileTabBar activeTab={activeTab} onTabChange={handleTabChange} />
       )}
 
       {showHelp && <HelpPage onClose={() => setShowHelp(false)} />}
     </div>
-  );
-}
-
-export default function MobileApp() {
-  return (
-    <MobileErrorBoundary>
-      <MobileAppInner />
-    </MobileErrorBoundary>
   );
 }

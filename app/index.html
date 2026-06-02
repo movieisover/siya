@@ -22,16 +22,13 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Service Worker 등록 -->
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').catch(function() {});
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
       }
-      window.addEventListener('beforeinstallprompt', function(e) {
-        e.preventDefault();
-        window.__installPrompt = e;
-      });
     </script>
   </body>
 </html>
