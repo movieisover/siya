@@ -1,10 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from './AuthProvider';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
@@ -13,33 +8,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
-
-  useEffect(() => {
-    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-    setIsStandalone(
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-    );
-
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  async function handleInstall() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -129,21 +97,6 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
-
-      {/* PWA 설치 버튼 */}
-      {!isStandalone && (
-        <div style={styles.installSection}>
-          {installPrompt ? (
-            <button style={styles.installBtn} onClick={handleInstall}>
-              📲 홈 화면에 설치
-            </button>
-          ) : isIOS ? (
-            <p style={styles.installHint}>
-              Safari 공유 버튼 → "홈 화면에 추가"로 설치
-            </p>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 }
@@ -246,25 +199,5 @@ const styles: Record<string, React.CSSProperties> = {
   buttonDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
-  },
-  installSection: {
-    marginTop: 24,
-    textAlign: 'center',
-  },
-  installBtn: {
-    padding: '12px 24px',
-    borderRadius: 10,
-    border: '1px solid #4a9eff',
-    background: 'transparent',
-    color: '#4a9eff',
-    fontSize: 15,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  installHint: {
-    fontSize: 13,
-    color: '#8b8fa3',
-    margin: 0,
-    lineHeight: 1.6,
   },
 };
