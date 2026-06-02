@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../auth/AuthProvider';
 import MobileHeader from './MobileHeader';
 import MobileTabBar from './MobileTabBar';
 import MobileThemeView from './MobileThemeView';
@@ -21,6 +22,7 @@ const TAB_MODE_MAP: Record<MobileTab, AppMode> = {
 };
 
 export default function MobileApp() {
+  const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<MobileTab>('theme');
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null);
   const [selectedStockName, setSelectedStockName] = useState<string | undefined>(undefined);
@@ -75,6 +77,7 @@ export default function MobileApp() {
         <MobileHeader
           onSearchOpen={() => {}}
           onHelpOpen={() => setShowHelp(true)}
+          onSignOut={signOut}
         />
       )}
 
