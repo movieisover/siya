@@ -1,5 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 배경 -->
   <rect width="512" height="512" rx="112" fill="#0f1117"/>
-  <text x="256" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="280" font-weight="900" text-anchor="middle" fill="#4a9eff">시</text>
-  <rect x="140" y="370" width="232" height="12" rx="6" fill="#4a9eff"/>
+
+  <!-- 그리드 라인 (옅게) -->
+  <line x1="80" y1="180" x2="432" y2="180" stroke="#1e2535" stroke-width="2"/>
+  <line x1="80" y1="260" x2="432" y2="260" stroke="#1e2535" stroke-width="2"/>
+  <line x1="80" y1="340" x2="432" y2="340" stroke="#1e2535" stroke-width="2"/>
+
+  <!-- 상승 그래프 라인 -->
+  <polyline
+    points="80,350 150,310 210,290 265,230 310,200 370,150 432,110"
+    fill="none"
+    stroke="#4a9eff"
+    stroke-width="18"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- 그래프 아래 채우기 (그라데이션) -->
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a9eff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#4a9eff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <polygon
+    points="80,350 150,310 210,290 265,230 310,200 370,150 432,110 432,420 80,420"
+    fill="url(#fill)"
+  />
+
+  <!-- 끝점 강조 원 -->
+  <circle cx="432" cy="110" r="16" fill="#4a9eff"/>
+  <circle cx="432" cy="110" r="8" fill="white"/>
+
+  <!-- 하단 액센트 라인 -->
+  <rect x="156" y="440" width="200" height="8" rx="4" fill="#4a9eff"/>
 </svg>
