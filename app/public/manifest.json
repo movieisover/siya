@@ -1,0 +1,21 @@
+{
+  "name": "시야 — 한국 주식 가치투자 분석",
+  "short_name": "시야",
+  "description": "가치투자자를 위한 한국 주식 분석 앱. 테마 분석, 스크리너, 종목 상세, AI 인사이트.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "orientation": "portrait-primary",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icon-512.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "screenshots": []
+}

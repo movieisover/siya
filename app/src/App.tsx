@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './components/auth/AuthProvider';
+import MobileApp from './components/mobile/MobileApp';
 import LoginPage from './components/auth/LoginPage';
 import Header from './components/layout/Header';
 import LeftPanel from './components/layout/LeftPanel';
@@ -25,6 +26,21 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(() => {
     return !localStorage.getItem('siya_splash_seen');
   });
+
+  // 모바일 감지 (768px 미만 또는 모바일 UA)
+  const [isMobile, setIsMobile] = useState(() => {
+    return window.innerWidth < 768 ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768 ||
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const watchlist = useWatchlist();
   const userThemes = useUserThemes(user?.id ?? null);
 
@@ -62,6 +78,11 @@ function AppContent() {
   }
 
   // 로그인 완료 → 메인 화면
+  // 모바일이면 MobileApp, 데스크톱이면 기존 레이아웃
+  if (isMobile) {
+    return <MobileApp />;
+  }
+
   return (
     <div className="app">
       <Header
