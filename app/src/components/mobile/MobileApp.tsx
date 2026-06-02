@@ -27,12 +27,18 @@ export default function MobileApp() {
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
-  // 설치 유도: 이미 standalone(설치됨) 또는 이전에 "계속" 선택한 경우 스킵
+  // 설치 유도: 아래 세 조건 모두 충족할 때만 표시
+  // 1) 이미 standalone 모드(설치됨) → 표시 안함
+  // 2) 이전에 "계속" 선택한 이력 → 표시 안함
+  // 3) 모바일 UA이면서 iOS이거나 안드로이드일 때만 표시 (데스크톱 브라우저는 설치 불필요)
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const [showInstall, setShowInstall] = useState(
-    !isStandalone && !localStorage.getItem('siya_install_dismissed')
+    !isStandalone &&
+    !localStorage.getItem('siya_install_dismissed') &&
+    isMobileUA
   );
 
   function handleInstallDismiss() {
