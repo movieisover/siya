@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useScreenerStocks } from '../../hooks/useScreenerStocks';
 import { DEFAULT_SCREENER_FILTERS } from '../../types/stock';
 import type { ScreenerFilters } from '../../types/stock';
@@ -13,7 +13,7 @@ export default function MobileScreenerView({ selectedStockCode, onStockSelect }:
   const [filters, setFilters] = useState<ScreenerFilters>({ ...DEFAULT_SCREENER_FILTERS });
   const [appliedFilters, setAppliedFilters] = useState<ScreenerFilters>({ ...DEFAULT_SCREENER_FILTERS });
   const [showFilter, setShowFilter] = useState(false);
-  const { stocks, loading, totalCount } = useScreenerStocks(appliedFilters);
+  const { stocks, loading } = useScreenerStocks(appliedFilters);
 
   function handleApply() {
     setAppliedFilters({ ...filters });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ThemeStock } from '../../hooks/useThemeData';
+import type { StockListItem } from '../../types/stock';
 
 // 정렬 칩 옵션
 type SortKey = 'total_score' | 'change_pct' | 'close' | 'per' | 'pbr' | 'roe';
@@ -13,7 +13,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 interface MobileStockListProps {
-  stocks: ThemeStock[];
+  stocks: StockListItem[];
   loading: boolean;
   title: string;
   selectedCode: string | null;
@@ -109,7 +109,7 @@ export default function MobileStockList({
 function MobileStockRow({
   stock, selected, onSelect,
 }: {
-  stock: ThemeStock;
+  stock: StockListItem;
   selected: boolean;
   onSelect: () => void;
 }) {
