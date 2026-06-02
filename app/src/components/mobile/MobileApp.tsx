@@ -6,13 +6,12 @@ import MobileThemeView from './MobileThemeView';
 import MobileScreenerView from './MobileScreenerView';
 import MobileWatchlistView from './MobileWatchlistView';
 import MobileStockDetail from './MobileStockDetail';
-import MobileInstallGuide from './MobileInstallGuide';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import HelpPage from '../common/HelpPage';
 import type { AppMode } from '../../App';
 import '../../mobile.css';
 
-// 에러 바운더리 — 흰 화면 대신 에러 메시지 표시 (디버깅용)
+// 에러 바운더리
 class MobileErrorBoundary extends Component<
   { children: React.ReactNode },
   { error: Error | null }
@@ -55,30 +54,21 @@ const TAB_MODE_MAP: Record<MobileTab, AppMode> = {
   disclosure: 'theme',
 };
 
+// standalone 모드(설치됨) 여부
+function checkStandalone(): boolean {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  } catch { return false; }
+}
+
 function MobileAppInner() {
   const [activeTab, setActiveTab] = useState<MobileTab>('theme');
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null);
   const [selectedStockName, setSelectedStockName] = useState<string | undefined>(undefined);
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-
-  const isStandalone = (() => {
-    try {
-      return window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    } catch { return false; }
-  })();
-  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const [showInstall, setShowInstall] = useState(
-    !isStandalone &&
-    !localStorage.getItem('siya_install_dismissed') &&
-    isMobileUA
-  );
-
-  function handleInstallDismiss() {
-    localStorage.setItem('siya_install_dismissed', '1');
-    setShowInstall(false);
-  }
+  const isStandalone = checkStandalone();
 
   function handleTabChange(tab: MobileTab) {
     setActiveTab(tab);
@@ -98,20 +88,13 @@ function MobileAppInner() {
 
   const currentMode: AppMode = TAB_MODE_MAP[activeTab];
 
-  if (showInstall) {
-    return (
-      <div className="mobile-app">
-        <MobileInstallGuide onDismiss={handleInstallDismiss} />
-      </div>
-    );
-  }
-
   return (
     <div className="mobile-app">
       {!selectedStockCode && (
         <MobileHeader
           onSearchOpen={() => {}}
           onHelpOpen={() => setShowHelp(true)}
+          showInstallBanner={!isStandalone}
         />
       )}
 

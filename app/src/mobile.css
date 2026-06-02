@@ -59,6 +59,31 @@
   background: var(--color-border);
 }
 
+/* 설치 배너 */
+.mobile-install-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(74, 158, 255, 0.12);
+  border-bottom: 1px solid rgba(74, 158, 255, 0.25);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.mobile-install-banner-btn {
+  flex-shrink: 0;
+  margin-left: 12px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: none;
+  background: var(--color-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* ── 메인 영역 ── */
 .mobile-main {
   flex: 1;
