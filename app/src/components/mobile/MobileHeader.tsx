@@ -1,5 +1,9 @@
 import { useAuth } from '../auth/AuthProvider';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
+
 interface MobileHeaderProps {
   onSearchOpen: () => void;
   onHelpOpen: () => void;
@@ -15,7 +19,7 @@ export default function MobileHeader({ onSearchOpen, onHelpOpen }: MobileHeaderP
   })();
 
   function handleInstall() {
-    const saved = (window as Window & { __installPrompt?: { prompt: () => void } }).__installPrompt;
+    const saved = (window as Window & { __installPrompt?: BeforeInstallPromptEvent }).__installPrompt;
     if (saved) {
       saved.prompt();
     } else {

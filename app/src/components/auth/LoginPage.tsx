@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 function InstallButton() {
-  const [prompt, setPrompt] = useState<null | { prompt: () => void }>(null);
+  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
   useEffect(() => {
     setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-    const saved = (window as Window & { __installPrompt?: { prompt: () => void } }).__installPrompt;
+    const saved = (window as Window & { __installPrompt?: BeforeInstallPromptEvent }).__installPrompt;
     if (saved) setPrompt(saved);
     const handler = (e: Event) => {
       e.preventDefault();
-      (window as Window & { __installPrompt?: { prompt: () => void } }).__installPrompt = e as { prompt: () => void };
-      setPrompt(e as { prompt: () => void });
+      const bipe = e as BeforeInstallPromptEvent;
+      (window as Window & { __installPrompt?: BeforeInstallPromptEvent }).__installPrompt = bipe;
+      setPrompt(bipe);
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
