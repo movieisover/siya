@@ -73,7 +73,7 @@ export default function MobileApp() {
       {/* 종목 상세일 때는 헤더 숨김 (상세 내부 뒤로가기 바 사용) */}
       {!selectedStockCode && (
         <MobileHeader
-          onSearchOpen={() => {/* 검색 — 추후 구현 */}}
+          onSearchOpen={() => {}}
           onHelpOpen={() => setShowHelp(true)}
         />
       )}

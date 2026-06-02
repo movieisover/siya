@@ -1,5 +1,70 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
+
+function InstallButton() {
+  const [prompt, setPrompt] = useState<null | { prompt: () => void }>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  useEffect(() => {
+    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
+    const saved = (window as Window & { __installPrompt?: { prompt: () => void } }).__installPrompt;
+    if (saved) setPrompt(saved);
+    const handler = (e: Event) => {
+      e.preventDefault();
+      (window as Window & { __installPrompt?: { prompt: () => void } }).__installPrompt = e as { prompt: () => void };
+      setPrompt(e as { prompt: () => void });
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  if (isStandalone) return null;
+
+  if (isIOS) {
+    return (
+      <div style={installStyles.box}>
+        <div style={installStyles.text}>Safari 하단 공유(⏫) → 홈 화면에 추가</div>
+        <div style={installStyles.sub}>앱처럼 풀스크린으로 실행됩니다</div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      style={installStyles.btn}
+      onClick={() => prompt?.prompt()}
+    >
+      홈 화면에 설치하기
+    </button>
+  );
+}
+
+const installStyles: Record<string, React.CSSProperties> = {
+  btn: {
+    width: '100%',
+    padding: '11px 0',
+    borderRadius: 8,
+    border: '1px solid #4a9eff',
+    background: 'transparent',
+    color: '#4a9eff',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: 8,
+  },
+  box: {
+    marginTop: 12,
+    padding: '10px 14px',
+    borderRadius: 8,
+    background: 'rgba(74,158,255,0.08)',
+    border: '1px solid rgba(74,158,255,0.25)',
+    textAlign: 'center',
+  },
+  text: { fontSize: 13, color: '#e4e6eb' },
+  sub: { fontSize: 11, color: '#8b8fa3', marginTop: 3 },
+};
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
@@ -96,6 +161,9 @@ export default function LoginPage() {
             {loading ? '처리 중...' : isSignUp ? '가입하기' : '로그인'}
           </button>
         </form>
+
+        {/* 모바일 홈화면 설치 */}
+        <InstallButton />
       </div>
     </div>
   );
