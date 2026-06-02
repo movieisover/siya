@@ -4,29 +4,38 @@ import react from "@vitejs/plugin-react";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
-
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React 코어
+          'react-vendor': ['react', 'react-dom'],
+          // Supabase
+          'supabase': ['@supabase/supabase-js'],
+          // 모바일 컴포넌트 모음
+          'mobile': [
+            './src/components/mobile/MobileApp',
+            './src/components/mobile/MobileHeader',
+            './src/components/mobile/MobileTabBar',
+            './src/components/mobile/MobileStockList',
+            './src/components/mobile/MobileStockDetail',
+            './src/components/mobile/MobileThemeView',
+            './src/components/mobile/MobileScreenerView',
+            './src/components/mobile/MobileWatchlistView',
+            './src/components/mobile/MobileInstallGuide',
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 1420,
     strictPort: true,
     host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
+    hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
+    watch: { ignored: ["**/src-tauri/**"] },
   },
 }));
