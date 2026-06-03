@@ -6,12 +6,20 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+
+    // 회원가입 시 비밀번호 확인 일치 검증
+    if (isSignUp && password !== confirmPassword) {
+      setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
     setLoading(true);
 
     const result = isSignUp
@@ -41,7 +49,7 @@ export default function LoginPage() {
               ...styles.tab,
               ...(isSignUp ? {} : styles.tabActive),
             }}
-            onClick={() => { setIsSignUp(false); setError(''); }}
+            onClick={() => { setIsSignUp(false); setError(''); setConfirmPassword(''); }}
           >
             로그인
           </button>
@@ -50,7 +58,7 @@ export default function LoginPage() {
               ...styles.tab,
               ...(isSignUp ? styles.tabActive : {}),
             }}
-            onClick={() => { setIsSignUp(true); setError(''); }}
+            onClick={() => { setIsSignUp(true); setError(''); setConfirmPassword(''); }}
           >
             회원가입
           </button>
@@ -82,6 +90,29 @@ export default function LoginPage() {
               style={styles.input}
             />
           </div>
+
+          {isSignUp && (
+            <div style={styles.field}>
+              <label style={styles.label}>비밀번호 확인</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="비밀번호 다시 입력"
+                required
+                minLength={6}
+                style={{
+                  ...styles.input,
+                  ...(confirmPassword && password !== confirmPassword
+                    ? { borderColor: '#ef4444' }
+                    : {}),
+                }}
+              />
+              {confirmPassword && password !== confirmPassword && (
+                <span style={styles.mismatchHint}>비밀번호가 일치하지 않습니다</span>
+              )}
+            </div>
+          )}
 
           {error && <div style={styles.error}>{error}</div>}
 
@@ -184,6 +215,10 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(239, 68, 68, 0.1)',
     color: '#ef4444',
     fontSize: 13,
+  },
+  mismatchHint: {
+    fontSize: 12,
+    color: '#ef4444',
   },
   button: {
     padding: '12px 0',
