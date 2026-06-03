@@ -131,6 +131,12 @@ app/
    - **(#5) 툴팁 바텀시트 닫기 가림**: iOS에서 스크롤 컨테이너 안 `position:fixed`가 뷰포트가 아닌 스크롤영역 기준이 돼 탭바에 가림 → `createPortal`로 **document.body에 직접 렌더** + 하단 패딩 확대.
    - **(추가) SW 배포 반영**: `/`(HTML)를 cache-first로 잡아 새 배포가 반영 안 되던 문제 → **HTML은 network-first**(오프라인 시 캐시 폴백)로 변경, CACHE_NAME v3.
    - 파일: main.tsx, MobileApp.tsx, SupplyChart.tsx, Tooltip.tsx, mobile.css, sw.js
+10. [x] **안드로이드 차트 가로보기 + 회원가입 비번 확인** (2026-06-03 완료)
+   - **차트 가로보기 (안드로이드 앱)**: manifest `orientation`이 `portrait-primary`(세로 고정)라 안드로이드 설치형 PWA가 안 돌아감(iOS는 manifest orientation 무시라 원래 정상). → `"any"`로 변경. MobileChartLayer는 (orientation: landscape) media query change를 이미 감지하므로 코드 변경 없이 동작. manifest는 cache-first 셸 자산이라 CACHE_NAME v3→**v4**로 올림.
+     - **주의**: 안드로이드는 설치 시점 manifest 방향이 앱에 구워짐 → 변경 반영하려면 **재설치 필요**(제거 후 재설치).
+     - **특이점(정상)**: manifest에 orientation 명시 시, OS 회전잠금과 무관하게 기기 방향 따라 회전함. → 차트뿐 아니라 앱 전체가 가로로 돌 수 있음(=`"any"`의 대가). 거슬리면 향후 "앱 전체 세로 고정 + 차트만 Fullscreen API로 가로" 방식으로 정밀화 가능.
+   - **회원가입 비밀번호 확인 필드** (LoginPage.tsx): 회원가입 모드에만 "비밀번호 확인" 입력 추가. 불일치 시 실시간 빨간 표시 + 제출 차단(signUp 호출 전 검증). 로그인 모드는 그대로. 데스탑·모바일 공용.
+   - 파일: manifest.json, sw.js, LoginPage.tsx
 
 ### 향후 개선 후보
 - 차트 터치 UX 개선 (핀치줌, 스와이프 탐색)
@@ -165,9 +171,9 @@ resize 이벤트도 감지해 태블릿 가로/세로 전환 대응.
 - **index.html 한글 금지** (2026-06-02, 교훈)
   - 한글 포함 시 인코딩 깨짐 → JS 실행 불가 → 흰 화면
   - index.html에는 영문자만 사용할 것
-- **SW 캐시 전략 (2026-06-03 업데이트, 현재 v3)**
+- **SW 캐시 전략 (2026-06-03 업데이트, 현재 v4)**
   - HTML(네비게이션)은 **network-first** → 새 배포가 즉시 반영(오프라인 시 캐시 폴백). 그 외 정적 셸 자산(icon, manifest)만 cache-first.
-  - 따라서 JS/CSS/HTML 변경은 **재배포만으로 반영**(CACHE_NAME 안 올려도 됨). icon-512.svg/manifest 등 정적 셸 자산을 바꿀 때만 CACHE_NAME 숫자를 올릴 것 (siya-v3 -> v4 ...).
+  - 따라서 JS/CSS/HTML 변경은 **재배포만으로 반영**(CACHE_NAME 안 올려도 됨). icon-512.svg/manifest 등 정적 셸 자산을 바꿀 때만 CACHE_NAME 숫자를 올릴 것 (siya-v4 -> v5 ...).
   - 폰에서 SW 갱신: 앱(또는 탭)을 완전히 닫았다 다시 열기. 강제: DevTools -> Application -> Service Workers -> Unregister, 또는 사이트 데이터 삭제.
   - icon-512.svg는 상승그래프 디자인 그대로 확정(원형 런처엔 끝점이 약간 잘릴 수 있으나 그대로 두기로 결정).
 - **iOS standalone safe-area (2026-06-03, 교훈)**
@@ -176,3 +182,6 @@ resize 이벤트도 감지해 태블릿 가로/세로 전환 대응.
 - **PWA 설치 버튼은 브라우저별 차이** (2026-06-03)
   - 크롬(안드로이드): beforeinstallprompt 발생 → "앱설치" 노출. iOS 사파리: isIOS로 수동 안내(공유→홈 화면에 추가). **삼성 인터넷: beforeinstallprompt 미발생 → 미노출(정상)**. 미지원 브라우저엠 버튼 숨김이 정석.
   - beforeinstallprompt는 로그인 전 발생 가능 → main.tsx에서 전역 캐처(9번 참고).
+- **PWA manifest orientation (2026-06-03, 교훈)**
+  - 안드로이드 설치형 PWA는 manifest `orientation`을 따름(+설치 시점에 앱에 구워짐 → 변경 시 재설치 필요). iOS는 manifest orientation 무시, 기기 방향 따라감.
+  - orientation 명시 시 OS 회전잠금 무시하고 기기 방향 따라 회전. 현재 `"any"`(전체 회전 허용) — 차트 가로보기 위함.
