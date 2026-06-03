@@ -1,4 +1,4 @@
-const CACHE_NAME = 'siya-v3';
+const CACHE_NAME = 'siya-v4';
 
 // 앱 셸 — 오프라인에서도 로딩 화면이 뜨도록 최소한만 캐시
 const SHELL_URLS = [
