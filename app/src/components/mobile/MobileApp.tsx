@@ -39,8 +39,10 @@ export default function MobileApp() {
     !isStandalone && !localStorage.getItem('siya_install_dismissed')
   );
 
-  // PWA 설치 프롬프트 — 페이지 로드 시 한 번만 발생하므로 앱 레벨에서 캐처해 보관
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  // PWA 설치 프롬프트 — main.tsx에서 전역 캡처한 값을 마운트 시 읽고, 늦게 오면 커스텀 이벤트로 갱신
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(
+    (window.__siyaInstallPrompt as BeforeInstallPromptEvent) ?? null
+  );
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   useEffect(() => {
@@ -48,11 +50,16 @@ export default function MobileApp() {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
     };
+    const onAvailable = () => {
+      setInstallPrompt((window.__siyaInstallPrompt as BeforeInstallPromptEvent) ?? null);
+    };
     const onInstalled = () => setInstallPrompt(null);
     window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('siya-install-available', onAvailable);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('siya-install-available', onAvailable);
       window.removeEventListener('appinstalled', onInstalled);
     };
   }, []);

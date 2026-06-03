@@ -142,11 +142,11 @@ export default function SupplyChart({ stockCode, stockName, height = 300, isModa
         <div className="supply-legend">
           <span className="supply-legend-item">
             <span className="supply-legend-dot" style={{ background: '#22c55e' }} />
-            기관 (우)
+            기관
           </span>
           <span className="supply-legend-item">
             <span className="supply-legend-line" style={{ background: '#3b82f6' }} />
-            외국인 (좌)
+            외국인
           </span>
         </div>
         <div ref={chartContainerRef} />

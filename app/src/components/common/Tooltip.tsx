@@ -1,4 +1,5 @@
 import { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface TooltipProps {
   text: string;
@@ -68,7 +69,7 @@ export default function Tooltip({ text, children }: TooltipProps) {
         >
           {children || '\u24d8'}
         </span>
-        {sheetOpen && (
+        {sheetOpen && createPortal(
           <div className="tooltip-sheet-overlay" onClick={() => setSheetOpen(false)}>
             <div className="tooltip-sheet" onClick={(e) => e.stopPropagation()}>
               <div className="tooltip-sheet-bar" />
@@ -77,7 +78,8 @@ export default function Tooltip({ text, children }: TooltipProps) {
                 닫기
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </>
     );

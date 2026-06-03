@@ -1,4 +1,4 @@
-const CACHE_NAME = 'siya-v2';
+const CACHE_NAME = 'siya-v3';
 
 // 앱 셸 — 오프라인에서도 로딩 화면이 뜨도록 최소한만 캐시
 const SHELL_URLS = [
@@ -38,7 +38,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 앱 셸: 캐시 우선, 실패 시 네트워크
+  // 네비게이션(HTML)은 네트워크 우선 — 새 배포가 즉시 반영되도록, 오프라인이면 캐시 폴백
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  // 그 외 앱 셸(아이콘 등 정적 자산): 캐시 우선, 실패 시 네트워크
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request))
   );
