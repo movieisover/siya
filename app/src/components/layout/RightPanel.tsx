@@ -16,9 +16,10 @@ interface RightPanelProps {
   watchMemo: string | null;
   onWatchToggle: (code: string, watched: boolean) => void;
   onMemoUpdate: (code: string, memo: string) => void;
+  onChartOpen?: () => void;
 }
 
-export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate }: RightPanelProps) {
+export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate, onChartOpen }: RightPanelProps) {
   const { data, loading } = useStockDetail(stockCode, mode, selectedThemeId);
   const { data: investorData } = useInvestorData(stockCode);
   const [activeTab, setActiveTab] = useState<'detail' | 'ai' | 'disclosure'>('detail');
@@ -105,6 +106,11 @@ export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched
                     <span className={`detail-change ${price.change_pct >= 0 ? 'change-up' : 'change-down'}`}>
                       {price.change_pct >= 0 ? '+' : ''}{price.change_pct.toFixed(2)}%
                     </span>
+                  )}
+                  {onChartOpen && (
+                    <button className="detail-chart-btn" onClick={onChartOpen}>
+                      📈 차트보기
+                    </button>
                   )}
                 </div>
                 <div className="detail-data-date">

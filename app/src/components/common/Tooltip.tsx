@@ -1,19 +1,35 @@
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 
 interface TooltipProps {
   text: string;
   children?: React.ReactNode;
 }
 
+function detectMobile() {
+  return window.innerWidth < 768 ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 export default function Tooltip({ text, children }: TooltipProps) {
+  const [isMobile, setIsMobile] = useState(detectMobile);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(detectMobile());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // ── 모바일: 탭 → 하단 바텀시트 ──
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // ── 데스크톱: hover 툴팁 (기존) ──
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, ready: false });
   const iconRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
 
-  // 툴팁이 렌더된 후 실제 크기를 측정해서 재배치
   useLayoutEffect(() => {
-    if (!show || !tipRef.current || !iconRef.current) return;
+    if (isMobile || !show || !tipRef.current || !iconRef.current) return;
 
     const iconRect = iconRef.current.getBoundingClientRect();
     const tipRect = tipRef.current.getBoundingClientRect();
@@ -21,16 +37,12 @@ export default function Tooltip({ text, children }: TooltipProps) {
     const tipHeight = tipRect.height;
     const margin = 8;
 
-    // 좌우: 아이콘 오른쪽에 배치, 화면 밖으면 왼쪽으로
     let left = iconRect.right + margin;
     if (left + tipWidth > window.innerWidth - margin) {
       left = iconRect.left - tipWidth - margin;
     }
     if (left < margin) left = margin;
 
-    // 상하: 기본은 아이콘 top 근처,
-    //       아래로 넘치면 화면 하단에 맞춰 위로 이동,
-    //       그래도 위로 넘치면 화면 상단에 고정
     let top = iconRect.top - 4;
     if (top + tipHeight > window.innerHeight - margin) {
       top = window.innerHeight - tipHeight - margin;
@@ -38,15 +50,40 @@ export default function Tooltip({ text, children }: TooltipProps) {
     if (top < margin) top = margin;
 
     setPos({ top, left, ready: true });
-  }, [show, text]);
+  }, [show, text, isMobile]);
 
   const handleShow = () => {
-    setPos({ top: 0, left: 0, ready: false }); // 일단 렌더를 안 보이게
+    setPos({ top: 0, left: 0, ready: false });
     setShow(true);
   };
-
   const handleHide = () => setShow(false);
 
+  // ── 모바일 렌더 ──
+  if (isMobile) {
+    return (
+      <>
+        <span
+          className="tooltip-icon"
+          onClick={(e) => { e.stopPropagation(); setSheetOpen(true); }}
+        >
+          {children || '\u24d8'}
+        </span>
+        {sheetOpen && (
+          <div className="tooltip-sheet-overlay" onClick={() => setSheetOpen(false)}>
+            <div className="tooltip-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="tooltip-sheet-bar" />
+              <div className="tooltip-sheet-text">{text}</div>
+              <button className="tooltip-sheet-close" onClick={() => setSheetOpen(false)}>
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ── 데스크톱 렌더 ──
   return (
     <span className="tooltip-wrapper">
       <span

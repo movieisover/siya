@@ -169,7 +169,7 @@ function ChartCore({ stockCode, stockName, height = 250, period, onPeriodChange,
       from: visibleStartDate,
       to: data[data.length - 1]?.time ?? visibleStartDate,
     });
-  }, [data, visibleStartDate]);
+  }, [data, visibleStartDate, height]);
 
   // MA 시리즈 관리 (showMA 토글 시)
   useEffect(() => {

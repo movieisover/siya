@@ -19,10 +19,16 @@ interface MobileStockListProps {
   selectedCode: string | null;
   onStockSelect: (code: string) => void;
   emptyMessage?: string;
+  /** 편집 모드: 행에 ✕ 제거 버튼 표시 */
+  editMode?: boolean;
+  onRemoveStock?: (code: string) => void;
+  /** 정렬 칩 아래, 리스트 위에 끼워넣을 노드 (종목 추가 검색바 등) */
+  addBar?: React.ReactNode;
 }
 
 export default function MobileStockList({
   stocks, loading, title, selectedCode, onStockSelect, emptyMessage = '종목이 없습니다',
+  editMode = false, onRemoveStock, addBar,
 }: MobileStockListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('total_score');
   const [sortDesc, setSortDesc] = useState(true);
@@ -48,19 +54,10 @@ export default function MobileStockList({
   if (loading) {
     return (
       <div className="mobile-stock-list">
-        <div className="mobile-list-header">{title}</div>
+        <div className="mobile-list-header"><span>{title}</span></div>
         <div className="mobile-list-loading">
           <span>⏳ 분석 중...</span>
         </div>
-      </div>
-    );
-  }
-
-  if (stocks.length === 0) {
-    return (
-      <div className="mobile-stock-list">
-        <div className="mobile-list-header">{title}</div>
-        <div className="mobile-list-empty">{emptyMessage}</div>
       </div>
     );
   }
@@ -73,32 +70,43 @@ export default function MobileStockList({
         <span className="mobile-list-count">{stocks.length}개</span>
       </div>
 
-      {/* 정렬 칩 */}
-      <div className="mobile-sort-chips">
-        {SORT_OPTIONS.map(({ key, label }) => (
-          <button
-            key={key}
-            className={`mobile-sort-chip ${sortKey === key ? 'active' : ''}`}
-            onClick={() => handleSortChange(key)}
-          >
-            {label}
-            {sortKey === key && (
-              <span className="mobile-sort-dir">{sortDesc ? ' ▼' : ' ▲'}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* 정렬 칩 (종목이 있을 때만) */}
+      {stocks.length > 0 && (
+        <div className="mobile-sort-chips">
+          {SORT_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              className={`mobile-sort-chip ${sortKey === key ? 'active' : ''}`}
+              onClick={() => handleSortChange(key)}
+            >
+              {label}
+              {sortKey === key && (
+                <span className="mobile-sort-dir">{sortDesc ? ' ▼' : ' ▲'}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 편집 모드: 종목 추가 검색바 (부모가 주입) */}
+      {addBar}
 
       {/* 종목 리스트 */}
       <div className="mobile-stock-rows">
-        {sorted.map((stock) => (
-          <MobileStockRow
-            key={stock.stock_code}
-            stock={stock}
-            selected={selectedCode === stock.stock_code}
-            onSelect={() => onStockSelect(stock.stock_code)}
-          />
-        ))}
+        {stocks.length === 0 ? (
+          <div className="mobile-list-empty">{emptyMessage}</div>
+        ) : (
+          sorted.map((stock) => (
+            <MobileStockRow
+              key={stock.stock_code}
+              stock={stock}
+              selected={selectedCode === stock.stock_code}
+              onSelect={() => onStockSelect(stock.stock_code)}
+              editMode={editMode}
+              onRemove={onRemoveStock ? () => onRemoveStock(stock.stock_code) : undefined}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -107,11 +115,13 @@ export default function MobileStockList({
 // ── 종목 행 ──
 
 function MobileStockRow({
-  stock, selected, onSelect,
+  stock, selected, onSelect, editMode, onRemove,
 }: {
   stock: StockListItem;
   selected: boolean;
   onSelect: () => void;
+  editMode?: boolean;
+  onRemove?: () => void;
 }) {
   const changePct = stock.change_pct;
   const isUp = changePct !== null && changePct >= 0;
@@ -156,6 +166,17 @@ function MobileStockRow({
         </span>
         <span className={`mobile-row-change ${changeClass}`}>{changeStr}</span>
       </div>
+
+      {/* 편집 모드: 제거 버튼 */}
+      {editMode && onRemove && (
+        <button
+          className="mobile-row-remove"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          aria-label="테마에서 제거"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }

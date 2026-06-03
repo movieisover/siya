@@ -1,32 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 // beforeinstallprompt 이벤트 타입 (브라우저 표준 미포함이라 직접 선언)
-interface BeforeInstallPromptEvent extends Event {
+export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
 interface MobileInstallGuideProps {
+  installPrompt: BeforeInstallPromptEvent | null;
+  isIOS: boolean;
   onDismiss: () => void;
+  onInstalled?: () => void;
 }
 
-export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProps) {
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
+export default function MobileInstallGuide({ installPrompt, isIOS, onDismiss, onInstalled }: MobileInstallGuideProps) {
   const [installing, setInstalling] = useState(false);
-
-  useEffect(() => {
-    // iOS 감지
-    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-
-    // 안드로이드 — 설치 프롬프트 이벤트 캐치
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
 
   async function handleInstall() {
     if (!installPrompt) return;
@@ -34,6 +22,7 @@ export default function MobileInstallGuide({ onDismiss }: MobileInstallGuideProp
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') {
+      onInstalled?.();
       onDismiss();
     }
     setInstalling(false);

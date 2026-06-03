@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import type { AppMode } from '../../App';
 import RightPanel from '../layout/RightPanel';
+import MobileChartLayer from './MobileChartLayer';
 
 interface MobileStockDetailProps {
   stockCode: string;
@@ -16,6 +18,7 @@ export default function MobileStockDetail({
   const watchlist = useWatchlist();
   const isWatched = watchlist.isWatched(stockCode);
   const watchMemo = watchlist.getMemo(stockCode);
+  const [chartOpen, setChartOpen] = useState(false);
 
   return (
     <div className="mobile-detail-screen">
@@ -27,7 +30,7 @@ export default function MobileStockDetail({
         <span className="mobile-back-title">{stockName || stockCode}</span>
       </div>
 
-      {/* RightPanel 재활용 */}
+      {/* RightPanel 재활용 — onChartOpen을 넘기면 주가 옆에 "차트보기" 버튼이 표시됨 (모바일 전용) */}
       <div className="mobile-detail-content">
         <RightPanel
           stockCode={stockCode}
@@ -39,8 +42,18 @@ export default function MobileStockDetail({
             watched ? watchlist.remove(code) : watchlist.add(code)
           }
           onMemoUpdate={(code, memo) => watchlist.updateMemo(code, memo)}
+          onChartOpen={() => setChartOpen(true)}
         />
       </div>
+
+      {/* 차트 전체화면 레이어 (세로 기본, 가로 보너스) */}
+      {chartOpen && (
+        <MobileChartLayer
+          stockCode={stockCode}
+          stockName={stockName}
+          onClose={() => setChartOpen(false)}
+        />
+      )}
     </div>
   );
 }

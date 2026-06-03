@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MobileHeader from './MobileHeader';
 import MobileTabBar from './MobileTabBar';
 import MobileThemeView from './MobileThemeView';
 import MobileScreenerView from './MobileScreenerView';
 import MobileWatchlistView from './MobileWatchlistView';
 import MobileStockDetail from './MobileStockDetail';
-import MobileInstallGuide from './MobileInstallGuide';
+import MobileInstallGuide, { type BeforeInstallPromptEvent } from './MobileInstallGuide';
+import MobileSearch from './MobileSearch';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import HelpPage from '../common/HelpPage';
+import { useAuth } from '../auth/AuthProvider';
 import type { AppMode } from '../../App';
 import '../../mobile.css';
 
@@ -21,11 +23,13 @@ const TAB_MODE_MAP: Record<MobileTab, AppMode> = {
 };
 
 export default function MobileApp() {
+  const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<MobileTab>('theme');
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null);
   const [selectedStockName, setSelectedStockName] = useState<string | undefined>(undefined);
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   // 설치 유도: 이미 standalone(설치됨) 또는 이전에 "계속" 선택한 경우 스킵
   const isStandalone =
@@ -34,6 +38,27 @@ export default function MobileApp() {
   const [showInstall, setShowInstall] = useState(
     !isStandalone && !localStorage.getItem('siya_install_dismissed')
   );
+
+  // PWA 설치 프롬프트 — 페이지 로드 시 한 번만 발생하므로 앱 레벨에서 캐처해 보관
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  // 설치 버튼 노출 조건: standalone(설치됨)이 아니고, 안드로이드 설치가능(프롬프트 있음) 또는 iOS(수동 안내)
+  const canInstall = !isStandalone && (installPrompt !== null || isIOS);
 
   function handleInstallDismiss() {
     localStorage.setItem('siya_install_dismissed', '1');
@@ -62,7 +87,12 @@ export default function MobileApp() {
   if (showInstall) {
     return (
       <div className="mobile-app">
-        <MobileInstallGuide onDismiss={handleInstallDismiss} />
+        <MobileInstallGuide
+          installPrompt={installPrompt}
+          isIOS={isIOS}
+          onDismiss={handleInstallDismiss}
+          onInstalled={() => setInstallPrompt(null)}
+        />
       </div>
     );
   }
@@ -73,8 +103,10 @@ export default function MobileApp() {
       {/* 종목 상세일 때는 헤더 숨김 (상세 내부 뒤로가기 바 사용) */}
       {!selectedStockCode && (
         <MobileHeader
-          onSearchOpen={() => {}}
+          onSearchOpen={() => setShowSearch(true)}
           onHelpOpen={() => setShowHelp(true)}
+          onSignOut={signOut}
+          onInstallOpen={canInstall ? () => setShowInstall(true) : undefined}
         />
       )}
 
@@ -125,6 +157,12 @@ export default function MobileApp() {
       )}
 
       {showHelp && <HelpPage onClose={() => setShowHelp(false)} />}
+      {showSearch && (
+        <MobileSearch
+          onSelect={handleStockSelect}
+          onClose={() => setShowSearch(false)}
+        />
+      )}
     </div>
   );
 }
