@@ -123,10 +123,14 @@ app/
    - **빠졌던 ⓘ 추가**: 데스크탑 LeftPanel ThemeCard에만 있던 신뢰도/타이밍 ⓘ을 모바일 테마 카드(MobileThemeView)에 동일 텍스트로 추가(배지 옆 + RSI/GC 옆). ⓘ onClick은 stopPropagation돼 테마로 안 들어감. (종목 상세·차트 ⓘ은 RightPanel 재활용이라 원래 있음.)
    - **전체 도움말(HelpPage)도 모바일 바텀시트**: `@media (max-width:767px)`로 .help-modal을 하단 시트(전체폭, 상단 라운드, 90vh, slide-up)로 override(!important). 표는 display:block; overflow-x:auto로 가로스크롤. 데스크탑(≥768px)은 기존 중앙 모달 그대로. JSX 무변경.
    - 파일: Tooltip.tsx, MobileThemeView.tsx, mobile.css
-8. [ ] **실기 테스트 준비** ← 다음 작업 (배포 후 폰)
-   - 안드로이드: "홈 화면에 설치" 버튼 동작 + 하드웨어 뒤로가기로 차트레이어 닫힘 확인
-   - iOS: 공유→홈 화면에 추가 안내 표시 + 설치칩 항상 노출 확인
-   - 설치 후 standalone 풀스크린 진입 + 설치칩 자동 사라짐 확인
+8. [x] **실기 테스트 (배포 후 폰)** (2026-06-03) — 안드로이드 크롬: 앱설치 칩 정상 노출. iOS 사파리/앱: 상·하단·툴팁 확인. 발견 이슈는 9번에서 수정.
+9. [x] **실기 이슈 수정** (2026-06-03 완료) — 폰에서 발견된 5건 + 탭바.
+   - **(#1) 수급 범례**: SupplyChart.tsx 의 "기관 (우)/외국인 (좌)" → "기관/외국인" (외국인이 선형이라 좌우 구분 불필요). PC·폰 공용.
+   - **(#2) 안드로이드 앱설치 칩**: `beforeinstallprompt`가 로그인 화면(MobileApp 마운트 전)에 발생해 놓치던 문제 → 캐처를 **main.tsx 모듈 로드 시점으로 상향**(window.__siyaInstallPrompt 전역 보관 + 'siya-install-available' 커스텀 이벤트). MobileApp은 마운트 시 전역값 읽고 늦은 도착도 수신. **결과: 크롬·iOS 정상. 삼성 인터넷은 beforeinstallprompt 미발생(브라우저 차이)이라 미노출 = 정상**.
+   - **(#3·#4·탭바) iOS standalone safe-area**: status-bar-style=black-translucent라 콘텐츠가 노치/홈인디케이터 밑으로 들어감. 상·하단 고정바에 `env(safe-area-inset-*)` 반영. **box-sizing 함정**: height 고정 바에 padding(safe-area) 추가하면 border-box라 콘텐츠가 찌그러짐(탭바 아이콘이 위로 쏠린 원인). → **height 대신 min-height: calc(기본 + env(...)) + box-sizing:border-box**. 적용: `.mobile-header`(top), `.mobile-search-bar`(top), `.mobile-detail-screen > .mobile-back-bar`(top; 테마 종목리스트의 뒤로가기바는 헤더 아래라 제외), `.mobile-tabbar`(bottom). 데스탑은 env=0이라 무영향.
+   - **(#5) 툴팁 바텀시트 닫기 가림**: iOS에서 스크롤 컨테이너 안 `position:fixed`가 뷰포트가 아닌 스크롤영역 기준이 돼 탭바에 가림 → `createPortal`로 **document.body에 직접 렌더** + 하단 패딩 확대.
+   - **(추가) SW 배포 반영**: `/`(HTML)를 cache-first로 잡아 새 배포가 반영 안 되던 문제 → **HTML은 network-first**(오프라인 시 캐시 폴백)로 변경, CACHE_NAME v3.
+   - 파일: main.tsx, MobileApp.tsx, SupplyChart.tsx, Tooltip.tsx, mobile.css, sw.js
 
 ### 향후 개선 후보
 - 차트 터치 UX 개선 (핀치줌, 스와이프 탐색)
@@ -161,8 +165,14 @@ resize 이벤트도 감지해 태블릿 가로/세로 전환 대응.
 - **index.html 한글 금지** (2026-06-02, 교훈)
   - 한글 포함 시 인코딩 깨짐 → JS 실행 불가 → 흰 화면
   - index.html에는 영문자만 사용할 것
-- **SW 캐시는 cache-first → 아이콘/셸 자산 변경 시 CACHE_NAME 올릴 것** (2026-06-03, 교훈)
-  - sw.js는 SHELL_URLS(`/`, manifest.json, icon-512.svg)를 cache-first로 제공. 파일을 바꿔도 CACHE_NAME이 같으면 activate가 구 캐시를 안 지워서 옛 버전이 계속 나감 (아이콘이 안 바뀌는 것처럼 보임).
-  - 해결: icon/manifest/셸 자산 변경 시 sw.js의 CACHE_NAME 숫자를 올릴 것 (siya-v1 -> siya-v2 ..., 현재 v2).
-  - 테스트 강제 갱신: DevTools -> Application -> Service Workers -> Unregister, 또는 Clear site data 후 재로드.
-  - 참고: icon-512.svg는 이미 상승그래프 디자인("시" 텍스트 아님). 과거 "시"가 보였던 건 순전히 구 캐시 때문.
+- **SW 캐시 전략 (2026-06-03 업데이트, 현재 v3)**
+  - HTML(네비게이션)은 **network-first** → 새 배포가 즉시 반영(오프라인 시 캐시 폴백). 그 외 정적 셸 자산(icon, manifest)만 cache-first.
+  - 따라서 JS/CSS/HTML 변경은 **재배포만으로 반영**(CACHE_NAME 안 올려도 됨). icon-512.svg/manifest 등 정적 셸 자산을 바꿀 때만 CACHE_NAME 숫자를 올릴 것 (siya-v3 -> v4 ...).
+  - 폰에서 SW 갱신: 앱(또는 탭)을 완전히 닫았다 다시 열기. 강제: DevTools -> Application -> Service Workers -> Unregister, 또는 사이트 데이터 삭제.
+  - icon-512.svg는 상승그래프 디자인 그대로 확정(원형 런처엔 끝점이 약간 잘릴 수 있으나 그대로 두기로 결정).
+- **iOS standalone safe-area (2026-06-03, 교훈)**
+  - status-bar-style=black-translucent → 콘텐츠가 노치/홈인디케이터 밑으로 들어감. 상·하단 고정 바에 env(safe-area-inset-*) 필수.
+  - box-sizing 함정: height 고정 바에 padding(safe-area) 추가하면 border-box라 콘텐츠가 찌그러짐 → min-height: calc(기본 + env(...)) 패턴 사용. 적용처: .mobile-header, .mobile-search-bar, .mobile-detail-screen>.mobile-back-bar(상단), .mobile-tabbar(하단).
+- **PWA 설치 버튼은 브라우저별 차이** (2026-06-03)
+  - 크롬(안드로이드): beforeinstallprompt 발생 → "앱설치" 노출. iOS 사파리: isIOS로 수동 안내(공유→홈 화면에 추가). **삼성 인터넷: beforeinstallprompt 미발생 → 미노출(정상)**. 미지원 브라우저엠 버튼 숨김이 정석.
+  - beforeinstallprompt는 로그인 전 발생 가능 → main.tsx에서 전역 캐처(9번 참고).
