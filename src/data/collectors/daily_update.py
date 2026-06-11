@@ -15,6 +15,7 @@
 import os
 import sys
 import time
+import httpx
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -34,13 +35,42 @@ TODAY = datetime.today()
 TODAY_STR = TODAY.strftime('%Y-%m-%d')
 
 
+# 일시적 연결 끊김 재시도 (2026-06-12 추가)
+# GitHub Actions 장시간 실행 중 Supabase가 HTTP/2 연결을 graceful close하면
+# httpx.RemoteProtocolError(ConnectionTerminated)가 발생해 스크립트 전체가 죽는다.
+# 이런 일시적 네트워크 오류는 지수 백오프로 재시도한다.
+_TRANSIENT_HTTPX = (
+    httpx.RemoteProtocolError,
+    httpx.ReadError,
+    httpx.WriteError,
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.ReadTimeout,
+    httpx.WriteTimeout,
+    httpx.PoolTimeout,
+)
+
+
+def execute_with_retry(query, retries=4, base_delay=1.5):
+    """Supabase 쿼리 빌더를 실행하되, 일시적 네트워크 오류 시 재시도한다."""
+    for attempt in range(retries):
+        try:
+            return query.execute()
+        except _TRANSIENT_HTTPX as e:
+            if attempt == retries - 1:
+                raise
+            wait = base_delay * (2 ** attempt)
+            print(f"  ⚠️ 연결 끊김 재시도 {attempt+1}/{retries} ({type(e).__name__}) — {wait:.0f}s 대기")
+            time.sleep(wait)
+
+
 def get_all_stocks():
     stocks = []
     offset = 0
     while True:
-        res = supabase.table('stocks').select(
+        res = execute_with_retry(supabase.table('stocks').select(
             'stock_code, stock_name, market'
-        ).eq('is_active', True).range(offset, offset + 999).execute()
+        ).eq('is_active', True).range(offset, offset + 999))
         stocks.extend(res.data)
         if len(res.data) < 1000:
             break
@@ -59,11 +89,11 @@ def get_latest_dps_map():
     dps_map = {}
     offset = 0
     while True:
-        res = supabase.table('valuation').select(
+        res = execute_with_retry(supabase.table('valuation').select(
             'stock_code, dps, trade_date'
         ).gte('dps', 0).gte('trade_date', cutoff).order(
             'trade_date', desc=True
-        ).range(offset, offset + 999).execute()
+        ).range(offset, offset + 999))
         for r in res.data:
             code = r['stock_code']
             if code not in dps_map:  # 날짜 내림차순이므로 첫 등장이 최신
@@ -161,9 +191,9 @@ def update_prices():
         if len(all_rows) >= 1000:
             for j in range(0, len(all_rows), 200):
                 batch = all_rows[j:j + 200]
-                supabase.table('price_daily').upsert(
+                execute_with_retry(supabase.table('price_daily').upsert(
                     batch, on_conflict='stock_code,trade_date'
-                ).execute()
+                ))
             total_rows += len(all_rows)
             all_rows = []
 
@@ -174,9 +204,9 @@ def update_prices():
     if all_rows:
         for j in range(0, len(all_rows), 200):
             batch = all_rows[j:j + 200]
-            supabase.table('price_daily').upsert(
+            execute_with_retry(supabase.table('price_daily').upsert(
                 batch, on_conflict='stock_code,trade_date'
-            ).execute()
+            ))
         total_rows += len(all_rows)
 
     print(f"✅ 시세 완료: {success}개 종목, {total_rows}건 (오류 {errors}개)\n")
@@ -211,9 +241,9 @@ def update_valuation():
     fin_map = {}
     offset = 0
     while True:
-        res = supabase.table('financials').select(
+        res = execute_with_retry(supabase.table('financials').select(
             'stock_code, net_income, total_equity, fiscal_year'
-        ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).range(offset, offset + 999).execute()
+        ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).range(offset, offset + 999))
         for r in res.data:
             if r['stock_code'] not in fin_map:
                 fin_map[r['stock_code']] = r
@@ -241,9 +271,9 @@ def update_valuation():
         if not net_income or not total_equity:
             continue
 
-        price_res = supabase.table('price_daily').select('close, trade_date').eq(
+        price_res = execute_with_retry(supabase.table('price_daily').select('close, trade_date').eq(
             'stock_code', code
-        ).order('trade_date', desc=True).limit(1).execute()
+        ).order('trade_date', desc=True).limit(1))
 
         if not price_res.data:
             continue
@@ -282,9 +312,9 @@ def update_valuation():
     if rows:
         for j in range(0, len(rows), 200):
             batch = rows[j:j + 200]
-            supabase.table('valuation').upsert(
+            execute_with_retry(supabase.table('valuation').upsert(
                 batch, on_conflict='stock_code,trade_date'
-            ).execute()
+            ))
 
     print(f"✅ PER/PBR 완료: {success}개 종목\n")
 
@@ -309,9 +339,9 @@ def update_preferred_stocks():
     for pref_code, common_code in PREFERRED_TO_COMMON.items():
         try:
             # 1. 보통주 최신 valuation 조회
-            common_val = supabase.table('valuation').select('*').eq(
+            common_val = execute_with_retry(supabase.table('valuation').select('*').eq(
                 'stock_code', common_code
-            ).order('trade_date', desc=True).limit(1).execute()
+            ).order('trade_date', desc=True).limit(1))
 
             if not common_val.data:
                 print(f"  ⚠️ {common_code} valuation 없음")
@@ -320,9 +350,9 @@ def update_preferred_stocks():
             cv = common_val.data[0]
 
             # 2. 우선주 최신 시세 조회
-            pref_price = supabase.table('price_daily').select(
+            pref_price = execute_with_retry(supabase.table('price_daily').select(
                 'close, trade_date'
-            ).eq('stock_code', pref_code).order('trade_date', desc=True).limit(1).execute()
+            ).eq('stock_code', pref_code).order('trade_date', desc=True).limit(1))
 
             if not pref_price.data:
                 print(f"  ⚠️ {pref_code} 시세 없음")
@@ -340,7 +370,7 @@ def update_preferred_stocks():
                 per = 0
 
             # 4. valuation upsert
-            supabase.table('valuation').upsert({
+            execute_with_retry(supabase.table('valuation').upsert({
                 'stock_code': pref_code,
                 'trade_date': pref_date,
                 'per': per,
@@ -350,15 +380,15 @@ def update_preferred_stocks():
                 'dps': cv.get('dps'),
                 'div_yield': cv.get('div_yield'),
                 'source': 'calc_pref',
-            }, on_conflict='stock_code,trade_date').execute()
+            }, on_conflict='stock_code,trade_date'))
 
             # 5. 보통주 최신 financials 복사
-            common_fin = supabase.table('financials').select('*').eq(
+            common_fin = execute_with_retry(supabase.table('financials').select('*').eq(
                 'stock_code', common_code
-            ).order('fiscal_year', desc=True).limit(3).execute()
+            ).order('fiscal_year', desc=True).limit(3))
 
             for cf in (common_fin.data or []):
-                supabase.table('financials').upsert({
+                execute_with_retry(supabase.table('financials').upsert({
                     'stock_code': pref_code,
                     'fiscal_year': cf['fiscal_year'],
                     'fiscal_quarter': cf['fiscal_quarter'],
@@ -373,7 +403,7 @@ def update_preferred_stocks():
                     'operating_margin': cf.get('operating_margin'),
                     'debt_ratio': cf.get('debt_ratio'),
                     'source': 'copy_common',
-                }, on_conflict='stock_code,fiscal_year,fiscal_quarter').execute()
+                }, on_conflict='stock_code,fiscal_year,fiscal_quarter'))
 
             print(f"  ✅ {pref_code}: PER={per}, PBR={pbr}, close={pref_close:,}")
 
@@ -437,9 +467,9 @@ def update_technical():
         code = s['stock_code']
 
         try:
-            result = supabase.table('price_daily').select(
+            result = execute_with_retry(supabase.table('price_daily').select(
                 'close, trade_date'
-            ).eq('stock_code', code).order('trade_date', desc=False).limit(100).execute()
+            ).eq('stock_code', code).order('trade_date', desc=False).limit(100))
 
             if not result.data or len(result.data) < 35:
                 continue
@@ -474,9 +504,9 @@ def update_technical():
     if rows:
         for j in range(0, len(rows), 200):
             batch = rows[j:j + 200]
-            supabase.table('technical').upsert(
+            execute_with_retry(supabase.table('technical').upsert(
                 batch, on_conflict='stock_code,trade_date'
-            ).execute()
+            ))
 
     print(f"✅ RSI/MACD 완료: {success}개 종목\n")
 
@@ -547,9 +577,9 @@ def update_investor():
         if len(all_rows) >= 1000:
             for j in range(0, len(all_rows), 200):
                 batch = all_rows[j:j + 200]
-                supabase.table('investor_trading').upsert(
+                execute_with_retry(supabase.table('investor_trading').upsert(
                     batch, on_conflict='stock_code,trade_date'
-                ).execute()
+                ))
             all_rows = []
 
         if (i + 1) % 500 == 0:
@@ -559,9 +589,9 @@ def update_investor():
     if all_rows:
         for j in range(0, len(all_rows), 200):
             batch = all_rows[j:j + 200]
-            supabase.table('investor_trading').upsert(
+            execute_with_retry(supabase.table('investor_trading').upsert(
                 batch, on_conflict='stock_code,trade_date'
-            ).execute()
+            ))
 
     print(f"✅ 수급 완료: {success}개 성공, {skip}개 건너뜀, {errors}개 오류\n")
 
