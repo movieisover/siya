@@ -41,6 +41,15 @@ CREATE TABLE price_daily (
 CREATE INDEX idx_price_daily_code_date ON price_daily(stock_code, trade_date DESC);
 
 -- ============================================================
+-- 2-1. fx_daily — 원/달러 일별 환율 (매매기준율)
+--      소스: ECOS 731Y001 / 0000001 (원/미국달러 매매기준율, 주기 D)
+-- ============================================================
+CREATE TABLE fx_daily (
+    trade_date  DATE PRIMARY KEY,                 -- 거래일 (KRX 영업일 기준)
+    rate        NUMERIC(10,2) NOT NULL            -- 원/달러 매매기준율
+);
+
+-- ============================================================
 -- 3. valuation — 밸류에이션 (PER, PBR 등, 일별 저장)
 -- ============================================================
 CREATE TABLE valuation (
@@ -184,6 +193,7 @@ CREATE INDEX idx_watchlist_user ON watchlist(user_id);
 -- 시장 데이터 테이블: 모든 인증된 사용자 읽기 가능, 수정은 서버만
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE price_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fx_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE valuation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE financials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investor_trading ENABLE ROW LEVEL SECURITY;
@@ -194,6 +204,7 @@ ALTER TABLE technical ENABLE ROW LEVEL SECURITY;
 -- 시장 데이터: 인증된 사용자 SELECT 허용
 CREATE POLICY "시장데이터_읽기" ON stocks FOR SELECT TO authenticated USING (true);
 CREATE POLICY "시장데이터_읽기" ON price_daily FOR SELECT TO authenticated USING (true);
+CREATE POLICY "시장데이터_읽기_fx" ON fx_daily FOR SELECT TO authenticated USING (true);
 CREATE POLICY "시장데이터_읽기" ON valuation FOR SELECT TO authenticated USING (true);
 CREATE POLICY "시장데이터_읽기" ON financials FOR SELECT TO authenticated USING (true);
 CREATE POLICY "시장데이터_읽기" ON investor_trading FOR SELECT TO authenticated USING (true);

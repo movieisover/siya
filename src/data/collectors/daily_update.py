@@ -8,6 +8,7 @@
   2b. 우선주 재무데이터 복사 (보통주 → 우선주, PER/PBR 재계산)
   3. RSI/MACD 재계산 (최근 시세 기반)
   4. 기관/외국인 수급 수집 (한국투자증권 API)
+  5. 원/달러 환율 수집 (ECOS API, 보조지표)
 
 실행: python src/data/collectors/daily_update.py
 """
@@ -26,6 +27,7 @@ if os.path.exists(_env_path):
 from supabase import create_client
 import FinanceDataReader as fdr
 from kis_api import kis_get
+from collect_fx import update_fx
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
@@ -597,6 +599,28 @@ def update_investor():
 
 
 # ══════════════════════════════════════════════
+# Step 5: 원/달러 환율 수집 (ECOS API, 보조지표)
+# ══════════════════════════════════════════════
+
+def update_fx_step():
+    """
+    ECOS 매매기준율을 fx_daily에 업서트 (collect_fx.update_fx 재사용, 단일 출처).
+    최근 며칠치를 겹쳐 받아 누락분을 UPSERT로 자동 만회한다 (하루 1건이라 부담 없음).
+    환율은 보조지표이므로 실패해도 전체 수집을 막지 않도록 try/except로 격리한다.
+    """
+    print("=" * 60)
+    print(f"Step 5: 원/달러 환율 수집 - ECOS API ({TODAY_STR})")
+    print("=" * 60)
+
+    try:
+        res = update_fx(supabase, days=10, executor=execute_with_retry)
+        print(f"✅ FX 완료: {res['saved']}건 저장 "
+              f"({res['start']}~{res['end']}, 건너뜀 {res['skipped']}개)\n")
+    except Exception as e:
+        print(f"  ⚠️ FX 수집 실패 (건너뜀, 메인 수집에 영향 없음): {e}\n")
+
+
+# ══════════════════════════════════════════════
 # 메인 실행
 # ══════════════════════════════════════════════
 
@@ -612,6 +636,7 @@ if __name__ == '__main__':
     update_preferred_stocks()
     update_technical()
     update_investor()
+    update_fx_step()
 
     elapsed = time.time() - start_time
     print(f"\n{'#' * 60}")

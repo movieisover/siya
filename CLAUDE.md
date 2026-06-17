@@ -232,6 +232,36 @@
 
 ## 의사결정 기록
 
+### 2026-06-17: FX(원/달러) 환율 데이터 도입 — ECOS API
+
+- 배경: 기존 "FX 분석 향후 후보"의 선행 작업. 종목 환율 민감도(상관/FX베타,
+  산점도, 캔들 오버레이) 위해 원/달러 일별 시계열 확보 필요.
+- 소스 선정 (냉철한 검토 결과):
+  · FDR USD/KRW = 내부적으로 Yahoo(KRW=X) 경유 → 불안정, 제외
+  · KIS = 현물 원/달러 일별 시계열 엔드포인트 없음(해외선물/잔고환산용
+    현재환율만) → 부적합
+  · 채택: 한국은행 ECOS API (무료 공식, JSON, 날짜구간 조회, 안정적)
+    - 통계표 731Y001 "주요국 통화의 대원화 환율" / 항목 0000001
+      "원/미국달러(매매기준율)" / 주기 D
+    - 응답: TIME(YYYYMMDD), DATA_VALUE(환율, 정수문자열로도 옴→float 캐스팅),
+      거래일만 존재(주말/공휴일 결측, price_daily와 동일 기준)
+- DB: fx_daily(trade_date date PK, rate numeric(10,2)) + RLS(authenticated SELECT,
+  price_daily와 동일). 원본만 저장, 상관/베타 등 파생값은 프론트 계산(기존 원칙).
+  통화쌍 칼럼은 USD 단일이라 미도입(향후 다통화 시 pair+복합PK 마이그레이션).
+- 수집기: src/data/collectors/collect_fx.py
+  · update_fx(sb, days/start/end, executor) 함수화(단일 출처), CLI 유지
+  · ECOS StatisticSearch 호출, list_total_count 페이지네이션(3년치도 단일 페이지)
+  · 옵션: 기본 3년 백필 / --days N / --from --to
+- daily_update.py: Step 5 추가 — update_fx(days=10, executor=execute_with_retry).
+  try/except 격리(실패해도 Step1~4 무영향). 보조지표라 메인 수집 방해 금지.
+- .env: ECOS_API_KEY 추가(gitignore)
+- 초기 백필: 2023-06-19~2026-06-17, 732영업일, 에러 0건, 총 732행(중복 없음)
+- 키 발급: ecos.bok.or.kr/api (무료, 즉시). 호출한도 하루 십만건 수준(여유 충분)
+- 상태: 데이터 레이어 완료. 프론트(민감도 카드/산점도/캔들 오버레이) 미착수
+- GitHub Actions: `daily-update.yml` env에 ECOS_API_KEY 미설정 → 추가 필요
+  (워크플로 env 한 줄 + GitHub Secrets 등록). 미등록 시 Actions에서 FX 스텝만
+  키 없음으로 실패(try/except로 격리되어 Step1~4는 정상).
+
 ### 2026-06-12: daily_update 일시적 연결 끊김 재시도 래퍼 추가
 - **배경**: 6/11 16:00 daily-update 워크플로우가 Step 2(PER/PBR 재계산) 중 크래시
   - 에러: `httpx.RemoteProtocolError: ConnectionTerminated (error_code:0)` — Supabase(PostgREST)가 장시간 실행 중 HTTP/2 연결을 graceful close

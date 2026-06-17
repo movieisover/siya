@@ -21,7 +21,19 @@
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
       "Bash(pip show *)",
-      "Bash(conda list *)"
+      "Bash(conda list *)",
+      "Bash(gh run *)",
+      "Bash(gh auth *)",
+      "Bash(echo \"status via gh --jq: [$\\(gh run view 27343444469 --json status --jq '.status'\\)]\")",
+      "Bash(echo \"concl: [$\\(gh run view 27343444469 --json conclusion --jq '.conclusion'\\)]\")",
+      "Bash(git -C C:/projects/stock-analyzer status --short)",
+      "Bash(git -C C:/projects/stock-analyzer diff --stat src/data/collectors/daily_update.py)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh api *)",
+      "Bash(curl -s \"https://api.github.com/repos/movieisover/siya/actions/workflows/daily-update.yml/runs?per_page=1\")",
+      "Skill(schedule)",
+      "PowerShell(conda run *)",
+      "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; & \"C:\\\\Users\\\\easte\\\\.conda\\\\envs\\\\siya\\\\python.exe\" -X utf8 src/data/collectors/collect_fx.py)"
     ]
   }
 }
