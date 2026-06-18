@@ -264,7 +264,7 @@ def update_valuation():
     offset = 0
     while True:
         res = execute_with_retry(supabase.table('financials').select(
-            'stock_code, net_income, total_equity, fiscal_year'
+            'stock_code, net_income, net_income_owners, total_equity, equity_owners, fiscal_year'
         ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).range(offset, offset + 999))
         for r in res.data:
             if r['stock_code'] not in fin_map:
@@ -287,8 +287,9 @@ def update_valuation():
         if not shares or not fin:
             continue
 
-        net_income = fin.get('net_income')
-        total_equity = fin.get('total_equity')
+        # EPS/BPS는 지배주주 기준(네이버/증권사 표준). 없으면 전체값으로 폴백.
+        net_income = fin.get('net_income_owners') or fin.get('net_income')
+        total_equity = fin.get('equity_owners') or fin.get('total_equity')
 
         if not net_income or not total_equity:
             continue
@@ -417,8 +418,10 @@ def update_preferred_stocks():
                     'revenue': cf.get('revenue'),
                     'operating_income': cf.get('operating_income'),
                     'net_income': cf.get('net_income'),
+                    'net_income_owners': cf.get('net_income_owners'),
                     'total_assets': cf.get('total_assets'),
                     'total_equity': cf.get('total_equity'),
+                    'equity_owners': cf.get('equity_owners'),
                     'total_liabilities': cf.get('total_liabilities'),
                     'roe': cf.get('roe'),
                     'roa': cf.get('roa'),

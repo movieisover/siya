@@ -80,10 +80,12 @@ CREATE TABLE financials (
     fiscal_quarter  VARCHAR(4) DEFAULT 'FY',       -- 'FY' / 'Q1' / 'Q2' / 'Q3'
     revenue         BIGINT,                        -- 매출액 (백만원)
     operating_income BIGINT,                       -- 영업이익 (백만원)
-    net_income      BIGINT,                        -- 당기순이익 (백만원)
+    net_income      BIGINT,                        -- 당기순이익(전체) (백만원)
+    net_income_owners BIGINT,                      -- 지배주주 순이익 (백만원) — EPS/PER·ROE용
     total_assets    BIGINT,                        -- 자산총계 (백만원)
     total_liabilities BIGINT,                      -- 부채총계 (백만원)
-    total_equity    BIGINT,                        -- 자본총계 (백만원)
+    total_equity    BIGINT,                        -- 자본총계(전체) (백만원)
+    equity_owners   BIGINT,                        -- 지배주주지분(자기자본) (백만원) — BPS/PBR·ROE용
     roe             NUMERIC(8,2),                  -- 자기자본이익률 (%)
     roa             NUMERIC(8,2),                  -- 총자산이익률 (%)
     debt_ratio      NUMERIC(8,2),                  -- 부채비율 (%)
