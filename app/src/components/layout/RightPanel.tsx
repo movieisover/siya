@@ -7,6 +7,8 @@ import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } f
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import { useInvestorData } from '../../hooks/useInvestorData';
+import { useFxSensitivity, type FxSensitivityData } from '../../hooks/useFxSensitivity';
+import type { FxSensitivity } from '../../lib/fxStats';
 
 interface RightPanelProps {
   stockCode: string | null;
@@ -22,6 +24,7 @@ interface RightPanelProps {
 export default function RightPanel({ stockCode, mode, selectedThemeId, isWatched, watchMemo, onWatchToggle, onMemoUpdate, onChartOpen }: RightPanelProps) {
   const { data, loading } = useStockDetail(stockCode, mode, selectedThemeId);
   const { data: investorData } = useInvestorData(stockCode);
+  const { data: fxData } = useFxSensitivity(stockCode);
   const [activeTab, setActiveTab] = useState<'detail' | 'ai' | 'disclosure'>('detail');
   const [memoInput, setMemoInput] = useState('');
   const [memoEditing, setMemoEditing] = useState(false);
@@ -348,6 +351,9 @@ MACD: 상승 = 상승 추세 / 하락 = 하락 추세
             <CompetitorsSection data={competitors} />
           )}
 
+          {/* 환율 민감도 */}
+          {fxData && <FxSensitivitySection data={fxData} />}
+
           {/* 기관/외국인 수급 */}
           {investorData && <SupplySection data={investorData} />}
 
@@ -556,6 +562,73 @@ function formatNum(v: number | null): string {
 // ── 배당 일정 ──
 
 // ── 기관/외국인 수급 ──
+
+// ── 환율 민감도 섹션 ──
+
+function FxSensitivitySection({ data }: { data: FxSensitivityData }) {
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">
+        환율 민감도
+        <Tooltip text={`종목 일별수익률과 원/달러 일별변동률의 상관계수입니다.
+상관계수는 환율과 동조하는 정도(강도)와 방향을 나타냅니다.
+과거 데이터 기반이며 인과관계가 아닙니다. 시기에 따라 달라집니다.
+일별 자금흐름(외국인 매매 등)이 주로 반영됩니다.
+
+국내 대형주는 외국인 자금흐름 영향으로 원화약세 시 동반 하락하는 경향이 많으며, 강도(높음/보통/낮음)가 종목별 차이를 나타냅니다.`} />
+      </div>
+      <div className="fx-sens-grid">
+        <FxWindowCard label="60일" s={data.window60} />
+        <FxWindowCard label="120일" s={data.window120} />
+      </div>
+      <div className="fx-sens-source">
+        데이터: 한국은행 ECOS(원/달러 매매기준율) · 가격 변동률 기반 계산
+      </div>
+    </div>
+  );
+}
+
+/** |corr| 기반 강도 범주: ≥0.5 높음 / 0.3~0.5 보통 / <0.3 낮음 */
+function fxStrength(corr: number): { key: 'high' | 'mid' | 'low'; label: string } {
+  const a = Math.abs(corr);
+  if (a >= 0.5) return { key: 'high', label: '높음' };
+  if (a >= 0.3) return { key: 'mid', label: '보통' };
+  return { key: 'low', label: '낮음' };
+}
+
+function FxWindowCard({ label, s }: { label: string; s: FxSensitivity | null }) {
+  if (!s) {
+    return (
+      <div className="fx-sens-card">
+        <div className="fx-sens-window">{label}</div>
+        <div className="fx-sens-na">데이터 부족</div>
+      </div>
+    );
+  }
+
+  const strength = fxStrength(s.correlation);
+  const weak = strength.key === 'low';
+  const direction = s.correlation < 0
+    ? '원/달러 강세(원화약세) 시 동반 하락 경향'
+    : '원/달러 강세 시 동반 상승 경향';
+
+  return (
+    <div className={`fx-sens-card${weak ? ' fx-sens-weak' : ''}`}>
+      <div className="fx-sens-window">
+        {label} <span className="fx-sens-n">n={s.n}</span>
+      </div>
+      {/* 강도 = 주 메시지 (종목 간 변별의 핵심) */}
+      <div className="fx-sens-strength">
+        <span className={`fx-sens-badge fx-strength-${strength.key}`}>민감도 {strength.label}</span>
+        <span className="fx-sens-corr">{s.correlation.toFixed(2)}</span>
+      </div>
+      {/* 방향 = 보조 한 줄 */}
+      {weak
+        ? <div className="fx-sens-dir fx-sens-dir-weak">환율 영향 약함</div>
+        : <div className="fx-sens-dir">{direction}</div>}
+    </div>
+  );
+}
 
 function SupplySection({ data }: { data: import('../../hooks/useInvestorData').InvestorData }) {
   const { summary, daily } = data;
