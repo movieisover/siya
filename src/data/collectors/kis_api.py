@@ -29,6 +29,17 @@ _TOKEN_CACHE_PATH = os.path.join(os.path.dirname(__file__), '.kis_token_cache.js
 _MIN_INTERVAL = 0.4
 _last_call_time = 0.0
 
+# KIS HTTP 호출 timeout (connect 5s, read 15s)
+# 정상 응답은 1초 내. timeout 부재 시 무한 hang → 5,538회/런 중 1건만 멈춰도
+# 워크플로 전체가 timeout-minutes 한도까지 정지하던 문제(2026-06-17) 방지.
+_HTTP_TIMEOUT = (5, 15)
+
+# 재시도 대상: 네트워크 예외만 (응답이 온 비-200/rt_cd 오류는 재시도 무의미 → 제외)
+_RETRY_NETWORK_EXC = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+)
+
 
 def _get_supabase():
     """Supabase 클라이언트 (service_role). 지연 로딩으로 순환 import 회피."""
@@ -106,6 +117,28 @@ def _save_token_cache_file(access_token, expires_at_iso):
         pass
 
 
+def _request_with_retry(method, url, retries=2, base_delay=1.0, **kwargs):
+    """
+    KIS HTTP 호출 공통 래퍼 (timeout + 네트워크 재시도).
+    - timeout 미지정 시 _HTTP_TIMEOUT(5, 15)s 주입
+    - 네트워크 예외(Timeout/ConnectionError)만 지수 백오프 재시도 (최대 retries회)
+      → 백오프 1s → 2s. 이 sleep은 _MIN_INTERVAL(호출간격 제한)과 별개.
+    - 최초 1회 + retries회 = 총 3회 시도. 최종 실패 시 마지막 예외를 그대로 raise.
+    - HTTP 200/비-200, rt_cd 등 응답 본문 처리는 호출자 책임 (여기선 Response만 반환).
+    """
+    kwargs.setdefault('timeout', _HTTP_TIMEOUT)
+    for attempt in range(retries + 1):
+        try:
+            return requests.request(method, url, **kwargs)
+        except _RETRY_NETWORK_EXC as e:
+            if attempt == retries:
+                raise
+            delay = base_delay * (2 ** attempt)  # 1s → 2s
+            print(f"  ⚠️ [KIS] 네트워크 재시도 {attempt+1}/{retries} "
+                  f"({type(e).__name__}) — {delay:.0f}s 대기")
+            time.sleep(delay)
+
+
 def get_access_token():
     """access_token 발급. 우선순위: DB → 파일 → 신규 발급."""
     # 1) DB에서 먼저 확인 (Edge Function과 공유)
@@ -125,7 +158,13 @@ def get_access_token():
         "appkey": APP_KEY,
         "appsecret": APP_SECRET,
     }
-    resp = requests.post(url, json=body)
+    try:
+        resp = _request_with_retry('POST', url, json=body)
+    except _RETRY_NETWORK_EXC as e:
+        # 토큰은 모든 KIS 호출의 전제. 네트워크로 3회 실패하면 None 반환 →
+        # 호출부(kis_get)가 토큰 없음을 인지하고 호출을 건너뛴다.
+        print(f"[KIS] ❌ 토큰 발급 실패 (네트워크 {type(e).__name__}) — 토큰 없이 KIS 호출 불가")
+        return None
     resp.raise_for_status()
     data = resp.json()
 
@@ -157,6 +196,11 @@ def kis_get(endpoint, tr_id, params):
         time.sleep(_MIN_INTERVAL - elapsed)
 
     token = get_access_token()
+    if token is None:
+        # 토큰 발급이 네트워크로 실패한 상태 → 이 호출은 건너뛴다 (None 반환).
+        print(f"  ⚠️ [KIS] 토큰 없음 → 호출 건너뜀 ({params.get('FID_INPUT_ISCD', endpoint)})")
+        return None
+
     headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": f"Bearer {token}",
@@ -168,7 +212,16 @@ def kis_get(endpoint, tr_id, params):
     }
 
     url = f"{BASE_URL}{endpoint}"
-    resp = requests.get(url, headers=headers, params=params)
+    try:
+        resp = _request_with_retry('GET', url, headers=headers, params=params)
+    except _RETRY_NETWORK_EXC as e:
+        # 네트워크 3회 실패 → 예외를 삼키고 None 반환. 이래야 호출자(종목 루프)의
+        # 기존 try/except가 '그 종목만 건너뛰고 계속'을 정상 수행한다.
+        # (timeout 부재 시엔 hang으로 예외 자체가 안 나 건너뛰지 못했음 — 이 변환이 핵심)
+        _last_call_time = time.time()
+        print(f"  ⚠️ [KIS] 네트워크 실패로 건너뜀 "
+              f"({params.get('FID_INPUT_ISCD', endpoint)}, {type(e).__name__})")
+        return None
     _last_call_time = time.time()
 
     if resp.status_code != 200:

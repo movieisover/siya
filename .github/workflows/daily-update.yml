@@ -9,7 +9,7 @@ on:
 jobs:
   daily-update:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 210
 
     steps:
       - name: 코드 체크아웃

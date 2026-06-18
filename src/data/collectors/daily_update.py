@@ -26,7 +26,7 @@ if os.path.exists(_env_path):
 
 from supabase import create_client
 import FinanceDataReader as fdr
-from kis_api import kis_get
+from kis_api import kis_get, get_access_token
 from collect_fx import update_fx
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -64,6 +64,25 @@ def execute_with_retry(query, retries=4, base_delay=1.5):
             wait = base_delay * (2 ** attempt)
             print(f"  ⚠️ 연결 끊김 재시도 {attempt+1}/{retries} ({type(e).__name__}) — {wait:.0f}s 대기")
             time.sleep(wait)
+
+
+def _ensure_kis_token():
+    """
+    KIS 스텝(시세/수급) 진입 가드.
+    종목 루프 직전에 토큰을 명시적으로 확보하고, 네트워크 3회 재시도까지 실패해
+    None이면 런 전체를 실패(exit 1)로 끝낸다.
+
+    배경: get_access_token이 종목 루프의 try/except 안에서만 불리면, 토큰 None일 때
+    전 종목이 조용히 건너뛰어지며 '빈 런 성공'으로 끝난다(가장 위험한 조용한 실패).
+    KIS 스텝 진입 전에 가드를 둬서 빨간불(exit≠0)로 명확히 실패시킨다.
+    """
+    token = get_access_token()
+    if token is None:
+        print("=" * 60)
+        print("❌ KIS 토큰 확보 실패 — 네트워크 재시도 모두 실패")
+        print("   KIS 시세/수급 수집 불가 → 런을 실패로 종료 (빈 런 성공 방지)")
+        print("=" * 60)
+        sys.exit(1)
 
 
 def get_all_stocks():
@@ -116,6 +135,7 @@ def update_prices():
     print(f"Step 1: 시세 업데이트 - KIS API ({TODAY_STR})")
     print("=" * 60)
 
+    _ensure_kis_token()  # 토큰 없으면 빈 런 성공 방지 위해 여기서 즉시 실패 종료
     stocks = get_all_stocks()
     total = len(stocks)
 
@@ -523,6 +543,7 @@ def update_investor():
     print(f"Step 4: 기관/외국인 수급 수집 - KIS API ({TODAY_STR})")
     print("=" * 60)
 
+    _ensure_kis_token()  # 런 도중 토큰 만료/네트워크 단절 대비 2차 가드
     stocks = get_all_stocks()
     total = len(stocks)
     success = 0
