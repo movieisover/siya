@@ -1641,6 +1641,111 @@
   margin-top: 2px;
 }
 
+/* ── 산점도 버튼 + 모달/시트 ── */
+.fx-scatter-btn {
+  float: right;
+  margin-top: -2px;
+  font-size: 11px;
+  color: var(--color-accent);
+  background: rgba(74, 158, 255, 0.10);
+  border: 1px solid rgba(74, 158, 255, 0.35);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.fx-scatter-btn:hover {
+  background: rgba(74, 158, 255, 0.18);
+}
+
+/* 복합 선택자로 .chart-modal-content(80vw/overflow:hidden)보다 특정성 우선 */
+.chart-modal-content.fx-modal-content {
+  width: min(560px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.fx-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 10px;
+  padding-right: 24px;
+}
+
+.fx-modal-periods {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.fx-modal-periods button {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.fx-modal-periods button.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.fx-modal-stats {
+  font-size: 13px;
+  color: var(--color-text);
+  margin-top: 8px;
+}
+.fx-modal-weak {
+  color: var(--color-text-secondary);
+}
+.fx-modal-note {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.fx-sheet-body {
+  padding: 4px 4px 8px;
+}
+
+/* ── 산점도 SVG ── */
+.fx-scatter {
+  display: block;
+  width: 100%;           /* 모달 본문 폭을 시원하게 채움 */
+  height: auto;          /* viewBox 비율(340:260≈4:3)로 높이 자동 → 잘림 방지 */
+  max-height: 58vh;      /* 세로 백업: 짧은 화면에서도 모달 안에 (preserveAspectRatio meet) */
+  margin: 4px auto 0;
+}
+.fx-scatter-frame {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.fx-scatter-zero {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.fx-scatter-reg {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+.fx-scatter-point {
+  fill: var(--color-accent);
+  fill-opacity: 0.45;
+}
+.fx-scatter-tick {
+  fill: var(--color-text-secondary);
+  font-size: 9px;
+}
+.fx-scatter-axis-label {
+  fill: var(--color-text-secondary);
+  font-size: 10px;
+}
+
 /* ── 수급 일별 테이블 ── */
 .supply-table {
   font-size: 12px;

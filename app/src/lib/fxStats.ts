@@ -115,6 +115,28 @@ export function computeFxSensitivity(pairs: ReturnPair[]): FxSensitivity {
 }
 
 /**
+ * 산점도 회귀선 (최소제곱). y = slope·x + intercept.
+ * slope = cov(stock, fx) / var(fx) = beta(컴퓨트와 동일 소스), intercept = ȳ - slope·x̄.
+ * var(fx) == 0 또는 표본 부족이면 null.
+ */
+export function regressionLine(pairs: ReturnPair[]): { slope: number; intercept: number } | null {
+  const n = pairs.length;
+  if (n < 2) return null;
+  let sx = 0, sy = 0;
+  for (const p of pairs) { sx += p.fxRet; sy += p.stockRet; }
+  const mx = sx / n, my = sy / n;
+  let cov = 0, vx = 0;
+  for (const p of pairs) {
+    const dx = p.fxRet - mx;
+    cov += dx * (p.stockRet - my);
+    vx += dx * dx;
+  }
+  if (!(vx > 0) || !Number.isFinite(vx)) return null;
+  const slope = cov / vx;
+  return { slope, intercept: my - slope * mx };
+}
+
+/**
  * 가장 최근 거래일부터 역으로 windowSize 공통거래일을 슬라이스해 민감도 계산.
  * 유효 데이터가 창 요구일의 70% 미만이면 null (부족).
  */

@@ -7,8 +7,10 @@ import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } f
 import Tooltip from '../common/Tooltip';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import { useInvestorData } from '../../hooks/useInvestorData';
+import { createPortal } from 'react-dom';
 import { useFxSensitivity, type FxSensitivityData } from '../../hooks/useFxSensitivity';
 import type { FxSensitivity } from '../../lib/fxStats';
+import FxScatterChart from '../stock-detail/FxScatterChart';
 
 interface RightPanelProps {
   stockCode: string | null;
@@ -352,7 +354,7 @@ MACD: 상승 = 상승 추세 / 하락 = 하락 추세
           )}
 
           {/* 환율 민감도 */}
-          {fxData && <FxSensitivitySection data={fxData} />}
+          {fxData && <FxSensitivitySection data={fxData} stockName={stock.stock_name} />}
 
           {/* 기관/외국인 수급 */}
           {investorData && <SupplySection data={investorData} />}
@@ -565,7 +567,56 @@ function formatNum(v: number | null): string {
 
 // ── 환율 민감도 섹션 ──
 
-function FxSensitivitySection({ data }: { data: FxSensitivityData }) {
+function useIsMobileFx(): boolean {
+  const detect = () =>
+    window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const [isMobile, setIsMobile] = useState(detect);
+  useEffect(() => {
+    const onResize = () => setIsMobile(detect());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+}
+
+function FxSensitivitySection({ data, stockName }: { data: FxSensitivityData; stockName: string }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [period, setPeriod] = useState<'60' | '120'>('60');
+  const isMobile = useIsMobileFx();
+
+  const s = period === '60' ? data.window60 : data.window120;
+  const points = period === '60' ? data.points60 : data.points120;
+  const strength = s ? fxStrength(s.correlation) : null;
+  const weak = strength?.key === 'low';
+
+  const close = () => setModalOpen(false);
+
+  const modalBody = (
+    <>
+      <div className="fx-modal-title">환율 민감도 산점도 — {stockName}</div>
+      <div className="fx-modal-periods">
+        <button className={period === '60' ? 'active' : ''} onClick={() => setPeriod('60')}>60일</button>
+        <button className={period === '120' ? 'active' : ''} onClick={() => setPeriod('120')}>120일</button>
+      </div>
+      {points && points.length >= 2 ? (
+        <>
+          <FxScatterChart points={points} />
+          <div className="fx-modal-stats">
+            상관계수 <b>{s ? s.correlation.toFixed(2) : '-'}</b>
+            {' · '}민감도 <b>{strength ? strength.label : '-'}</b>
+            {' · '}표본 n={s ? s.n : points.length}
+            {weak && <span className="fx-modal-weak"> (참고용)</span>}
+          </div>
+        </>
+      ) : (
+        <div className="fx-sens-na">데이터 부족</div>
+      )}
+      <div className="fx-modal-note">
+        ⓘ 과거 데이터 기반이며 인과관계가 아닙니다. 겹친 점의 추세는 상관계수와 함께 보세요.
+      </div>
+    </>
+  );
+
   return (
     <div className="detail-section">
       <div className="detail-section-title">
@@ -576,6 +627,7 @@ function FxSensitivitySection({ data }: { data: FxSensitivityData }) {
 일별 자금흐름(외국인 매매 등)이 주로 반영됩니다.
 
 국내 대형주는 외국인 자금흐름 영향으로 원화약세 시 동반 하락하는 경향이 많으며, 강도(높음/보통/낮음)가 종목별 차이를 나타냅니다.`} />
+        <button className="fx-scatter-btn" onClick={() => setModalOpen(true)}>⠿ 산점도 보기</button>
       </div>
       <div className="fx-sens-grid">
         <FxWindowCard label="60일" s={data.window60} />
@@ -584,6 +636,26 @@ function FxSensitivitySection({ data }: { data: FxSensitivityData }) {
       <div className="fx-sens-source">
         데이터: 한국은행 ECOS(원/달러 매매기준율) · 가격 변동률 기반 계산
       </div>
+
+      {/* 데스크톱: 중앙 모달 / 모바일: 바텀시트 (기존 패턴 재사용) */}
+      {modalOpen && !isMobile && (
+        <div className="chart-modal-overlay" onClick={close}>
+          <div className="chart-modal-content fx-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="chart-modal-close" onClick={close}>✕</button>
+            {modalBody}
+          </div>
+        </div>
+      )}
+      {modalOpen && isMobile && createPortal(
+        <div className="tooltip-sheet-overlay" onClick={close}>
+          <div className="tooltip-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="tooltip-sheet-bar" />
+            <div className="fx-sheet-body">{modalBody}</div>
+            <button className="tooltip-sheet-close" onClick={close}>닫기</button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

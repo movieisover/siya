@@ -8,11 +8,15 @@ import {
   windowSensitivity,
   type DatedValue,
   type FxSensitivity,
+  type ReturnPair,
 } from '../lib/fxStats';
 
 export interface FxSensitivityData {
   window60: FxSensitivity | null;
   window120: FxSensitivity | null;
+  // 산점도용 정렬된 원시 페어 (요약과 동일 소스 — 수치·산점도 일관성 보장)
+  points60: ReturnPair[];
+  points120: ReturnPair[];
 }
 
 // 120일 창 + 수익률 계산 여유를 위해 최근 ~180거래일 확보
@@ -45,7 +49,10 @@ export function useFxSensitivity(stockCode: string | null) {
         .reverse(); // 오름차순
 
       if (priceAsc.length < 2) {
-        if (!cancelled) { setData({ window60: null, window120: null }); setLoading(false); }
+        if (!cancelled) {
+          setData({ window60: null, window120: null, points60: [], points120: [] });
+          setLoading(false);
+        }
         return;
       }
 
@@ -69,9 +76,12 @@ export function useFxSensitivity(stockCode: string | null) {
       const aligned = alignByDate(stockRet, fxRet);
 
       if (!cancelled) {
+        // 산점도 점 = windowSensitivity와 동일한 최근 N개 슬라이스 (수치와 같은 표본)
         setData({
           window60: windowSensitivity(aligned, 60),
           window120: windowSensitivity(aligned, 120),
+          points60: aligned.slice(-60),
+          points120: aligned.slice(-120),
         });
         setLoading(false);
       }
