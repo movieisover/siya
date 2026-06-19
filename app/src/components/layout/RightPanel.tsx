@@ -842,12 +842,25 @@ function DividendSection({ dividends }: { dividends: DividendItem[] }) {
   // ② 결정 대기: 금액 미확정 + 기준일이 오늘 이전이되 120일 이내인 것
   //   (회사 정관상 기준일은 지정돼 있으나 이사회 결의/공시가 아직 안 된 경우)
   //   120일 이상 묵은 건 사실상 무배당이므로 숨김
-  const pendingDecisions = dividends.filter(
-    (d) =>
-      d.dividend_per_share === 0 &&
-      d.record_date <= today &&
-      d.record_date >= pendingCutoff
-  );
+  //   stale 가드: 이 기준일 '이후'에 이미 지급완료된 배당이 있으면(= 다음 분기 등이
+  //   먼저 지급됨) 이 0행은 확정금액 미반영(stale)이 거의 확실 → 결정 대기에서 제외.
+  const pendingDecisions = dividends.filter((d) => {
+    if (
+      !(d.dividend_per_share === 0 &&
+        d.record_date <= today &&
+        d.record_date >= pendingCutoff)
+    ) {
+      return false;
+    }
+    const paidAfterThis = dividends.some(
+      (e) =>
+        e.dividend_per_share > 0 &&
+        e.payment_date != null &&
+        e.payment_date <= today &&
+        e.payment_date > d.record_date
+    );
+    return !paidAfterThis;
+  });
 
   // ③ 과거 배당 이력 (금액 확정 + 지급일이 오늘까지, 최대 6건)
   const history = dividends

@@ -44,3 +44,15 @@ jobs:
         run: |
           cd src/data/collectors
           python collect_dividend_schedule.py --days 7
+
+      # 미확정(dps=0) 과거행 재조회 — 격리(실패해도 잡/앞 수집 영향 없음)
+      - name: KIS 배당 미확정 재조회 (self-healing, 최근 180일)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: |
+          cd src/data/collectors
+          python collect_dividend_schedule.py --refresh-pending

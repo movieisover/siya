@@ -228,6 +228,72 @@ def collect_by_stock(stock_code, from_date, to_date):
         print(f"\n  ✅ DB 저장: {saved}건 성공, {failed}건 실패")
 
 
+def _count_pending(supabase, floor, today_str):
+    """dps=0 & 기준일 [floor, today] 행 (stock_code, record_date) 목록."""
+    rows = []
+    offset = 0
+    while True:
+        res = supabase.table('dividend_schedule').select('stock_code, record_date')\
+            .eq('dividend_per_share', 0).gte('record_date', floor).lte('record_date', today_str)\
+            .range(offset, offset + 999).execute()
+        rows.extend(res.data)
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return rows
+
+
+def collect_refresh_pending(window_days=180):
+    """
+    미확정(dps=0)으로 남은 '과거' 기준일 행을 재조회해 확정값으로 갱신 (self-healing).
+
+    배경: 기준일 기반 증분 수집이 이사회 결의 전(금액 0) 시점에 행을 잡고,
+    확정 후엔 과거 기준일을 재방문하지 않아 0으로 굳는 문제(예: 삼성 2026-03-31).
+    KIS 조회가 '날짜→전 종목' 구조이므로, dps=0 행들의 distinct 기준일만 재조회하면
+    같은 날 stale 종목을 한 번에 갱신할 수 있어 호출량이 적다.
+    window_days 상한으로 아주 오래된 0행(사실상 무배당 확정)은 제외해 무한 재조회 방지.
+    """
+    supabase = get_supabase()
+    today = datetime.today().date()
+    floor = (today - timedelta(days=window_days)).isoformat()
+    today_str = today.isoformat()
+
+    print("=" * 60)
+    print(f"미확정(dps=0) 배당 재조회 — 기준일 [{floor} ~ {today_str}]")
+    print("=" * 60)
+
+    before = _count_pending(supabase, floor, today_str)
+    dates = sorted({r['record_date'] for r in before})
+    print(f"  미확정 행: {len(before)}건 / 재조회 대상 기준일: {len(dates)}개")
+    if not dates:
+        print("  재조회할 미확정 행 없음.")
+        return
+
+    all_rows = []
+    api_calls = 0
+    for ds in dates:
+        date_str = ds.replace('-', '')  # YYYY-MM-DD → YYYYMMDD
+        try:
+            items = fetch_dividends_by_date(date_str)
+            api_calls += 1
+            if items:
+                all_rows.extend(parse_rows(items))
+        except Exception as e:
+            print(f"  ❌ {ds} 오류: {e}")
+        if len(all_rows) >= 500:
+            batch_upsert(supabase, 'dividend_schedule', all_rows,
+                         'stock_code,record_date,dividend_type')
+            all_rows = []
+    if all_rows:
+        batch_upsert(supabase, 'dividend_schedule', all_rows,
+                     'stock_code,record_date,dividend_type')
+
+    after = _count_pending(supabase, floor, today_str)
+    fixed = len(before) - len(after)
+    print(f"\n  📡 API 호출: {api_calls}회")
+    print(f"  ✅ 확정 반영(0→금액): {fixed}건  /  여전히 미확정: {len(after)}건")
+
+
 def main():
     parser = argparse.ArgumentParser(description='KIS API 배당 일정 수집')
     parser.add_argument('--stock', type=str, help='단일 종목 테스트 (종목코드 6자리)')
@@ -235,7 +301,17 @@ def main():
     parser.add_argument('--years', type=int, help='최근 N년 수집 (초기 수집용)')
     parser.add_argument('--from', dest='from_date', type=str, help='시작일 (YYYY-MM-DD)')
     parser.add_argument('--to', dest='to_date', type=str, help='종료일 (YYYY-MM-DD)')
+    parser.add_argument('--refresh-pending', dest='refresh_pending', action='store_true',
+                        help='미확정(dps=0) 과거 기준일 행 재조회 (최근 180일, self-healing)')
     args = parser.parse_args()
+
+    # 미확정 행 재조회 모드 (다른 옵션과 독립)
+    if args.refresh_pending:
+        start = time.time()
+        print(f"\n{'#' * 60}\n  시야 배당 미확정 재조회\n{'#' * 60}\n")
+        collect_refresh_pending()
+        print(f"\n소요 시간: {(time.time() - start) / 60:.1f}분")
+        return
 
     today = datetime.today()
 
