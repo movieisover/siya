@@ -239,6 +239,23 @@
 
 ## 의사결정 기록
 
+### 2026-06-19: 배당 미확정(dps=0) stale 행 자동 정정 + 결정대기 UI 가드
+
+- **증상**: 삼성전자 종목상세 배당일정에 "결정 대기 — 기준일 2026-03-31, 금액 미확정"이 뜨는데, 그 아래 이력엔 더 나중에 지급된 2025-12-31(566원, 4/17 지급)이 완료로 표시 → 시간순 모순.
+- **진단 (원인 a = stale 행 확정)**:
+  - DB: 삼성 2026-03-31 행이 실제 `dps=0`, 지급일 없음. **KIS 재조회 시엔 372원/지급 2026-05-29 확정값 존재** → 우리 DB만 0(stale).
+  - 메커니즘: `collect_dividend_schedule.py`의 증분 수집이 **기준일(F_DT/T_DT) 기반 + 주간 "최근 7일"**. 분기 기준일(3/31)이 이사회 결의 *전*(금액 0)에 수집된 뒤, 확정(~5월)되어도 **7일 윈도우가 80일 지난 과거 기준일을 재방문 안 해** 0으로 굳음. `batch_upsert`는 DO UPDATE라 재조회만 되면 갱신됨 → 윈도우가 과거를 안 건드리는 게 근본 원인.
+  - UI 기여: `RightPanel` `pendingDecisions` 필터가 `dps=0 && 기준일 120일 이내`만 보고 가드가 없어 stale 0행을 "결정 대기"로 노출.
+- **수정 (데이터 근본 + UI 보강 둘 다)**:
+  - **데이터** — `collect_dividend_schedule.py --refresh-pending`(신규): DB `dps=0` & 기준일 **[오늘-180일, 오늘]** 행의 **distinct 기준일**만 `fetch_dividends_by_date`로 재조회 → `batch_upsert`(DO UPDATE). KIS 조회가 '날짜→전 종목' 구조라 by-date 배치가 호출 최소(stale 종목이 분기말에 몰림). 180일 상한으로 무한 재조회 방지(오래된 0=무배당 확정), stale 고쳐지면 다음 실행 타깃에서 자동 제외(self-healing).
+    - 주간 워크플로(`collect-dividends.yml`)에 Step 추가 — `continue-on-error: true`로 격리(실패해도 앞 수집·잡 무영향).
+  - **UI** — `RightPanel` `pendingDecisions` 가드: **이 기준일 '이후'에 이미 지급완료(dps>0, 지급일≤오늘)된 배당이 있으면** 그 0행은 stale로 보고 결정 대기에서 제외. (분기배당주에서 다음 사이클이 먼저 지급됐는데 이전 분기가 0 = 명백 stale). 데이터 정정 전에도 모순 표시 차단.
+- **실행 결과**:
+  - 삼성 2026-03-31 즉시 정정: 0 → 372원/5-29.
+  - `--refresh-pending` 1회: 미확정 169건/기준일 23개(API 23회) → **확정 반영 4건(삼성 외 분기배당주)**, 나머지 165건은 KIS도 0이라 유지(올바름).
+- **파일**: `src/data/collectors/collect_dividend_schedule.py`, `.github/workflows/collect-dividends.yml`, `app/src/components/layout/RightPanel.tsx`. **커밋**: `abf4ab2`
+- **교훈**: 기준일 기반 증분 수집은 "기준일 공시 → 금액 확정"이 시차가 있는 필드(배당)에선 과거 재방문(self-healing refresh)이 필수. (역: 4/20 "dps=0+120일내=결정대기" 로직은 stale을 거르는 가드가 없으면 오작동)
+
 ### 2026-06-19: FX 산점도 추가 + 오버레이(④) 미채택 결정
 
 - **산점도**: 종목 일별수익률 vs 원/달러 일별변동률 (x=환율변동, y=주가변동) + 회귀선. **SVG 직접 렌더**(recharts 등 의존성 추가 없이, SplashModal/Week52Band 관행 따름). 데스크톱=차트모달 패턴 재사용 / 모바일=Tooltip 바텀시트 재사용. 60/120 토글, 상관계수·강도·표본 병기, 착시방지 ⓘ.
