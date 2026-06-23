@@ -17,6 +17,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 import OpenDartReader
 from utils import get_supabase, get_all_stocks, get_collected_codes
+from financials_common import parse_amount, to_million, extract_financials
 
 supabase = get_supabase()
 DART_API_KEY = os.getenv('DART_API_KEY')
@@ -24,79 +25,6 @@ dart = OpenDartReader(DART_API_KEY)
 
 # 2025년 사업보고서 공시 완료 (2026년 4월 기준) → 3개년 2023~2025
 YEARS = [2025, 2024, 2023]
-
-
-def parse_amount(value):
-    """문자열 금액 → 정수 변환"""
-    if value is None or value == '' or value == '-':
-        return None
-    try:
-        return int(str(value).replace(',', ''))
-    except (ValueError, TypeError):
-        return None
-
-
-def to_million(value):
-    """원 단위 → 백만원 단위 변환"""
-    if value is None or value == 0:
-        return None
-    return int(value / 1_000_000)
-
-
-# DART 전체 재무제표(finstate_all)는 회사마다 계정 한글명이 다르므로
-# XBRL 표준 account_id로 매칭한다(이름은 fallback). (2026-06-18 지배주주 기준 전환)
-def extract_financials(df):
-    """
-    finstate_all 결과(단일 fs_div로 필터링됨) → 주요 계정 dict (원 단위).
-    손익 항목은 sj_div IS/CIS에서, 재무상태표 항목은 BS에서만 찾는다
-    (자본변동표 SCE 등에 같은 계정이 중복 등장하므로 구간 제한 필수).
-    """
-    is_rows = df[df['sj_div'].isin(['IS', 'CIS'])]
-    bs_rows = df[df['sj_div'] == 'BS']
-
-    def by_id(rows, account_id):
-        m = rows[rows['account_id'] == account_id]
-        if not m.empty:
-            return parse_amount(m.iloc[0].get('thstrm_amount'))
-        return None
-
-    def by_name(rows, keyword):
-        # 계정명에 괄호 등 정규식 특수문자가 있어 regex=False(리터럴 부분일치) 사용
-        m = rows[rows['account_nm'].str.contains(keyword, na=False, regex=False)]
-        if not m.empty:
-            return parse_amount(m.iloc[0].get('thstrm_amount'))
-        return None
-
-    revenue = (by_id(is_rows, 'ifrs-full_Revenue')
-               or by_name(is_rows, '매출액') or by_name(is_rows, '수익'))
-    operating_income = (by_id(is_rows, 'dart_OperatingIncomeLoss')
-                        or by_id(is_rows, 'ifrs-full_ProfitLossFromOperatingActivities')
-                        or by_name(is_rows, '영업이익'))
-    net_income = (by_id(is_rows, 'ifrs-full_ProfitLoss')
-                  or by_name(is_rows, '당기순이익') or by_name(is_rows, '당기순손익'))
-    net_income_owners = by_id(is_rows, 'ifrs-full_ProfitLossAttributableToOwnersOfParent')
-
-    total_assets = by_id(bs_rows, 'ifrs-full_Assets') or by_name(bs_rows, '자산총계')
-    total_liabilities = by_id(bs_rows, 'ifrs-full_Liabilities') or by_name(bs_rows, '부채총계')
-    total_equity = by_id(bs_rows, 'ifrs-full_Equity') or by_name(bs_rows, '자본총계')
-    equity_owners = by_id(bs_rows, 'ifrs-full_EquityAttributableToOwnersOfParent')
-
-    # 개별재무제표(OFS) 등 지배/비지배 분리가 없으면 전체값으로 대체
-    if net_income_owners is None:
-        net_income_owners = net_income
-    if equity_owners is None:
-        equity_owners = total_equity
-
-    return {
-        'revenue': revenue,
-        'operating_income': operating_income,
-        'net_income': net_income,
-        'net_income_owners': net_income_owners,
-        'total_assets': total_assets,
-        'total_liabilities': total_liabilities,
-        'total_equity': total_equity,
-        'equity_owners': equity_owners,
-    }
 
 
 def get_codes_with_owners(supabase):
