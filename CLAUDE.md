@@ -239,6 +239,26 @@
 
 ## 의사결정 기록
 
+### 2026-06-24: TTM 분기 수집 빌드 1차 + 게이트 설계 확정
+
+- **빌드 1차 완료 (커밋 `40b202d`)**: TTM(최근 4분기) 계산의 데이터 레이어.
+  - `financials_common.py`(신규): 연간/분기 공용 추출 로직. `extract_financials(df, cumulative=...)` — `cumulative=True`면 분기 누적 컬럼(`thstrm_add_amount`) 우선, False면 연간(`thstrm`). 2026-06-22 점검에서 확정한 "누적은 add_amount" 원칙 반영.
+  - `collect_quarterly.py`(신규): 분기 누적 재무를 `financials`에 적재(`source='dart_q'`, `fiscal_quarter`∈{Q1,Q2,Q3}). **제출기한 지난 분기만 조회**(`REPRT_FILING_CUTOFF` Q1=5/15·반기=8/15·Q3=11/15 이후, `eligible_combos()`) → 미제출 분기 헛콜 제거. 가드 `DART_DAILY_LIMIT=8500`(공시 수집과 한도 풀 공유 마진). `--resume`(분기행 있는 종목 skip)으로 이틀 분할.
+  - `collect_financials.py`: 추출 헬퍼를 `financials_common` import로 전환(연간 동작 무변경).
+  - `verify_quarterly.py`(신규): 분기 수집 검증(샘플 5종목, read-only).
+- **분기 수집 현황**: 1일차 **1,773종목 적재**(분기행 6,974, 가드 8,501콜에서 정상 중단). 2일차 `--resume` 진행 중(남은 ~998, 우선주·SPAC 꼬리 구간이라 다수 건너뜀, ~5천콜 예상 1회 완주). 분기행은 **원자료만** 저장 — 비율(roe/roa/debt_ratio/operating_margin)은 의도적 NULL(분기 누적 비율은 연간과 직접 비교 불가 → TTM 단계에서 산출).
+- **TTM 게이트 설계 확정**:
+  - **TTM 적용 = `acc_mt='12'`(12월 결산) AND TTM 3값(직전 FY / 작년 동기 누적 / 올해 동기 누적) 전부 구비.**
+  - 게이트 기준은 "분기 개수"가 아니라 **공식 성립 여부(계산 가능성)** — 6/22 점검의 "분기≥3" 표면 기준을 계산가능성 기준으로 정밀화.
+  - **음수 TTM은 그대로 저장**(적자 신호, PER<0→0 처리는 표시단에서).
+  - **비12월 ~33종목은 연간 폴백**(6/24 실측: dart_q 1,773 중 33개=1.9%, 대부분 소형주 + 리츠 11개라 TTM 부적합, 시총영향≈0. **신영증권(001720, 03월결산, KOSPI 시총~144위)만 유의미** → 인지하되 폴백 허용). 라벨 drift(비12월의 "2025 Q3"가 달력상 6개월 밀림) 위험은 게이트로 차단.
+  - **`acc_mt` 소스 = FDR `StockListing('KRX-DESC').SettleMonth`**(DART 한도 안 씀, '12월' 형식. DART `acc_mt`와 값 일치 검증됨).
+  - **비12월 정밀 TTM**(실제 회계기간 정렬 기반)은 **v2 백로그** — 현재는 연간 폴백으로 충분.
+- **스키마(Supabase 적용 완료)**: `ttm_earnings` 테이블 신설 + `valuation.eps_basis` 컬럼 추가(TTM/연간 기준 표기용).
+- **실행 주의**: 분기 수집 로그는 **UTF-16** 인코딩 → `Get-Content -Encoding Unicode`로 읽기. (PowerShell 리다이렉트 기본 인코딩. cp949 이모지 크래시 회피용 `PYTHONIOENCODING=utf-8`와 별개 이슈)
+- **다음 단계**: ① 2일차 `--resume` 완주 → ② `acc_mt` 백필(FDR `SettleMonth` → `stocks` 결산월 컬럼) → ③ `compute_ttm.py` 구현(게이트 통과 종목 `ttm_earnings` 채우기) → ④ `update_valuation` 연동(EPS=TTM 지배주주순이익 기준, `eps_basis` 표기) → ⑤ 프론트 TTM 배지.
+- **파일**: `src/data/collectors/financials_common.py`, `collect_quarterly.py`, `collect_financials.py`, `verify_quarterly.py`. 로그: `logs/quarterly_collect_day1_20260623.log`, `logs/quarterly_collect_day2_20260624.log`.
+
 ### 2026-06-22: TTM 전환 사전 점검 — 분기 데이터 품질 진단 (실질 80% 커버리지)
 
 - **목적**: TTM(최근 4분기) 전환 빌드 전, DART 분기 재무가 쓸 만한지 검증. 일회성 진단 스크립트 `src/data/collectors/check_quarterly_coverage.py`(DB 저장 안 함). 샘플 30종목(대형5 고정 + 중형10 시총중위·업종분산 + 소형10 시총하위·거래정상 + SPAC5). DART finstate_all을 분기 reprt_code(11013/11012/11014/11011)로 조회.
