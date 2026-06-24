@@ -259,6 +259,21 @@
 
 ## 의사결정 기록
 
+### 2026-06-24: TTM ④ valuation 연동 (EPS=TTM 전환) + 분기행 회귀 점검
+
+- **③ 결과 사후 점검 2건 (깨끗 → ④ 진행)**:
+  1. **basis='ttm' 2,442 vs ②예상 2,490, 차이 48 완전 정산**: `2490 = SPAC 41 + owners NULL 7`. ②는 `stock_code 존재`만 봐서 SPAC 오염행도 카운트, ③은 `net_income_owners NOT NULL` + SPAC 제외를 추가 요구 → 데이터 손실 아님, 게이트 강화. ttm_earnings 실제 집합과 100% 일치 확인.
+  2. **SPAC 27.7조 오염 전파 경로 점검 → 백로그 유지 OK**: 분기행(`source='dart_q'`)을 읽는 소비자 전수조사 — 프론트 4훅(useThemeData/useStockDetail/useScreenerStocks/useWatchlistStocks) + `daily_update.update_valuation`(fin_map)은 **전부 `fiscal_quarter='FY'` 필터** → 분기행 안 읽음. SPAC은 우선주 매핑 대상 아니라 우선주복사로도 전파 안 됨.
+     - **단 별건 회귀 발견·수정**: `daily_update.py`의 우선주 복사(Step 2b)와 `calc_valuation.py`의 `get_latest_financials`가 `fiscal_quarter` 필터 없이 `order fiscal_year desc` → 분기행 도입 후 `fiscal_year=2026`(2026 Q1) 분기행이 최신 연간으로 오집힐 위험. **둘 다 `.eq('fiscal_quarter','FY')` 추가**로 차단(SPAC 무관, 분기행 도입 일반 회귀).
+- **④ EPS=TTM 전환 (`daily_update.update_valuation`)**:
+  - EPS 분자를 **`ttm_earnings.ttm_net_income_owners`(지배주주 TTM)** 기준으로 전환, `valuation.eps_basis`에 `ttm_earnings.basis` 복사. `ttm_earnings`에 없거나 NULL이면 FY financials로 최종 폴백(basis='annual'). **BPS는 지분=시점값이라 TTM 무관 → FY `equity_owners` 유지**.
+  - 우선주(Step 2b): valuation upsert에 `eps_basis = cv.get('eps_basis')` 추가 — 보통주 기준(ttm/annual) 그대로 승계.
+  - **검증(전종목 실행 + dry-run)**: eps_basis 분포 **ttm 2,437 / annual 133 / NULL 10**(합 2,570 = PER 완료 수). 삼성전자 ttm(EPS 7,571→14,254) / SK하이닉스 ttm(60,220→105,433, 2026Q1 호황 반영) / **신영증권 annual(6,607=6,607, 연간폴백 무손상)** / SK이노 적자(EPS −12,745, PER 0 처리) / **하나34호스팩 annual(EPS 35, 오염 27.7조 안 들어옴 — SPAC 가드가 EPS까지 보호)** / 삼성전자우 `eps_basis='ttm'` 승계.
+  - **NULL 10개** = 신규상장 소형주(뉴엔AI·아이엠바이오로직스 등) FY/ttm 데이터 미수집 → skip된 옛 행. ④ 버그 아님. **⑤에서 `eps_basis=NULL` 배지 방어 필요**.
+- **파일**: `src/data/collectors/daily_update.py`(update_valuation EPS=TTM + 우선주 eps_basis + 우선주복사 FY필터), `calc_valuation.py`(FY필터). 로그: `logs/update_valuation_ttm_20260624.log`.
+- **푸시 주의**: 매일 16:00 GitHub Actions `daily_update`가 이 로직으로 PER/PBR 재계산 → **푸시해야** 자동 실행이 eps_basis를 채움(미푸시 시 옛 로직이 eps_basis NULL로 원복).
+- **다음 단계**: ⑤ 프론트 TTM/연간 배지 — `valuation.eps_basis` 기준으로 PER 옆 "TTM"/"연간" 표기, NULL이면 배지 숨김. (백로그 유지: SPAC 분기데이터 원천 오염 `extract_financials` 수정)
+
 ### 2026-06-24: TTM 데이터 레이어 완성 — 결산월 백필(②) + TTM 계산(③)
 
 - **②결산월 백필 (`backfill_settle_month.py`, `docs/migrate_stocks_settle_month.sql`)**: `stocks.settle_month` 컬럼(text) 추가 후 FDR `KRX-DESC.SettleMonth`로 백필. **DART 0콜**.

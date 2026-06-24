@@ -273,6 +273,19 @@ def update_valuation():
             break
         offset += 1000
 
+    # TTM(최근 4분기) 이익 — EPS 분자를 ttm_earnings 기준으로 전환 (2026-06-24)
+    ttm_map = {}
+    offset = 0
+    while True:
+        res = execute_with_retry(supabase.table('ttm_earnings').select(
+            'stock_code, ttm_net_income_owners, basis').range(offset, offset + 999))
+        for r in res.data:
+            ttm_map[r['stock_code']] = r
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    print(f"  TTM 이익: {len(ttm_map)}개 종목")
+
     dps_map = get_latest_dps_map()
     print(f"  배당 DPS: {len(dps_map)}개 종목")
 
@@ -287,8 +300,18 @@ def update_valuation():
         if not shares or not fin:
             continue
 
-        # EPS/BPS는 지배주주 기준(네이버/증권사 표준). 없으면 전체값으로 폴백.
-        net_income = fin.get('net_income_owners') or fin.get('net_income')
+        # EPS = TTM(최근 4분기) 지배주주순이익 기준 (ttm_earnings, 2026-06-24 전환).
+        #   ttm_earnings.basis가 'ttm'/'annual' 원천 — 'annual' 폴백 행도 ttm_net_income_owners에
+        #   직전 FY 지배주주순이익이 들어있어 한 소스로 일관 처리. ttm_earnings에 없거나
+        #   값이 NULL이면 FY financials로 최종 폴백(basis='annual').
+        ttm = ttm_map.get(code)
+        if ttm and ttm.get('ttm_net_income_owners') is not None:
+            net_income = ttm['ttm_net_income_owners']
+            eps_basis = ttm['basis']
+        else:
+            net_income = fin.get('net_income_owners') or fin.get('net_income')
+            eps_basis = 'annual'
+        # BPS는 지분(시점값)이라 TTM 무관 — FY 지배주주지분 유지.
         total_equity = fin.get('equity_owners') or fin.get('total_equity')
 
         if not net_income or not total_equity:
@@ -320,6 +343,7 @@ def update_valuation():
             'pbr': pbr,
             'eps': round(eps, 2) if eps else None,
             'bps': round(bps, 2) if bps else None,
+            'eps_basis': eps_basis,
             'source': 'calc'
         }
 
@@ -402,13 +426,15 @@ def update_preferred_stocks():
                 'bps': bps,
                 'dps': cv.get('dps'),
                 'div_yield': cv.get('div_yield'),
+                'eps_basis': cv.get('eps_basis'),  # 보통주 EPS 기준(ttm/annual) 그대로 승계
                 'source': 'calc_pref',
             }, on_conflict='stock_code,trade_date'))
 
-            # 5. 보통주 최신 financials 복사
+            # 5. 보통주 최신 financials 복사 (연간 FY행만 — 분기행 dart_q 도입 후
+            #    fiscal_quarter 필터 없으면 2026 Q1 등 분기행이 섞여 복사되는 회귀 방지)
             common_fin = execute_with_retry(supabase.table('financials').select('*').eq(
                 'stock_code', common_code
-            ).order('fiscal_year', desc=True).limit(3))
+            ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).limit(3))
 
             for cf in (common_fin.data or []):
                 execute_with_retry(supabase.table('financials').upsert({

@@ -57,10 +57,12 @@ def get_latest_financials():
     offset = 0
     
     while True:
+        # 연간(FY)행만 — 분기행(dart_q, 2026 Q1 등) 도입 후 fiscal_quarter 필터 없으면
+        # fiscal_year=2026 분기행이 최신 연간으로 오집히는 회귀 방지 (2026-06-24)
         result = supabase.table('financials').select(
             'stock_code, fiscal_year, net_income, total_equity, revenue, operating_income'
-        ).order('fiscal_year', desc=True).range(offset, offset + 999).execute()
-        
+        ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).range(offset, offset + 999).execute()
+
         for row in result.data:
             code = row['stock_code']
             # 가장 최신 연도만 사용 (이미 정렬됨)
