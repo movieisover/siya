@@ -268,6 +268,7 @@
   1. `python collect_quarterly.py` 실행(**--resume 없이 전체**) — 2026Q2 자동 수집. DART 8,500 가드로 2일 분할 가능.
   2. `python compute_ttm.py` 실행 — 2026Q2 **자동 감지**, TTM 전환(코드 수정 불필요).
   3. (자동) daily_update가 매일 16:00 새 `ttm_earnings` 읽어 `valuation.eps_basis` 갱신.
+  - 🚨 **함정 — 8월엔 절대 `--resume` 쓰지 말 것**: `--resume`은 *종목 단위* skip(분기행이 하나라도 있으면 그 종목 통째로 건너뜀)이라, 이미 2025Q1~Q3·2026Q1을 가진 종목 전부를 건너뛰어 **새 분기(2026Q2)가 안 들어옴**. 반드시 **`--resume 없이` 전체 재실행**해야 Q2가 추가된다. (`--resume`은 *최초 2일 분할 수집 중단→재개* 같은 동일 분기셋 이어받기 전용. 2일 분할은 8,500 가드에서 자동 중단되며, 이때의 재개는 OK — 새 분기를 '추가'하는 8월 실행과는 목적이 다름.)
   - 향후 옵션: `collect_quarterly`에 분기 증분(`--quarter 2026Q2`) 모드 추가하면 8월 전체 재수집 부담↓ (현재는 미구현, 전체 재수집으로 충분).
 - **파일**: `src/data/collectors/compute_ttm.py`.
 
