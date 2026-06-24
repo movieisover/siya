@@ -259,6 +259,19 @@
 
 ## 의사결정 기록
 
+### 2026-06-24: SPAC 분기데이터 오염 원천 수정 (백로그 닫음 ✅)
+
+- **배경**: TTM 백로그였던 "SPAC 신탁계정 손익 오추출" 정리. 조사로 **원래 가정과 다른 그림** 확인.
+- **메커니즘 (2가지로 분해)**:
+  1. **revenue falsy 폴백 버그 (진짜 코드 버그)**: `revenue = by_id('ifrs-full_Revenue') or by_name('수익')`에서 SPAC은 영업수익(`ifrs-full_Revenue`)이 **0인데 `0`이 falsy**라 `or`로 넘어가 **'금융수익' 61.5조를 매출로 오추출**. 0과 None을 구분 못 함.
+  2. **net_income 27.7조 = DART 원본 쓰레기값 (코드 버그 아님)**: `ifrs-full_ProfitLoss` account_id가 정확히 27.7조 반환. 하나34호스팩이 XBRL에 단위 잘못 기재(EPS 6원인데 순이익 27.7조 → 주식수 4.6조주, 물리적 불가). account_id 정확 매칭이라 **코드로 차단 불가**.
+- **영향 범위 (예상보다 극소)**: SPAC 분기행 209개 중 오염(>1조) **단 1개**(하나34호스팩 2025 Q1), 연간행 0개. "79개 SPAC 광범위 오염" 아님 → 분기마다 누적되는 긴급 문제 아니었음.
+- **조치 (A만, B 미채택)**:
+  - **(A) revenue 0-falsy 버그 수정** (`financials_common.py`): `or` 체인 → **`_first(*vals)`**(None 아닌 첫 값, 0도 채택) 헬퍼로 일관 교체(revenue/op/net_income/BS 항목 전부). **사전 검증**: 금융지주·증권·보험 7개 샘플 모두 `ifrs-full_Revenue` **부재(폴백 유지) 또는 >0** — 0값 보유 종목 없음 → 금융사 매출 추출 무영향 확인 후 진행. **회귀 검증**: 하나34 revenue 61.5조→0, KB금융/신한/미래에셋/삼성생명 매출 폴백 그대로, 삼성전자 전 항목 정상.
+  - **(B) net_income sanity 가드 — 미채택**: "비현실적 배수면 폴백" 휴리스틱은 정상 실적 급변동(턴어라운드·일회성 대규모 이익) 오탐 위험. DART 원본 오류 1건 때문에 전종목 휴리스틱은 과잉방어. **compute_ttm의 SPAC 강제폴백이 이미 (B)를 막고 있어(EPS 35 검증됨) 충분 — 게이트 유지**.
+  - **하나34호스팩 1행 직접 삭제**: 2025 Q1 오염행(id=24313) 삭제. 나머지 분기행 정상(rev 131/204/55 백만원). 재수집은 DART 원본이 쓰레기값이라 무의미 → 삭제 채택(SPAC이라 TTM 대상도 아님, `--resume`이 기존 분기행 보고 skip하므로 부활 없음).
+- **파일**: `src/data/collectors/financials_common.py`. **백로그 닫힘**.
+
 ### 2026-06-24: TTM ⑤ 프론트 배지 — TTM 전환 완료 🎉
 
 - **⑤ TTM/연간 배지 (`valuation.eps_basis` 기준)**: PER이 나오는 **전 위치에 일관 적용** — 종목상세 핵심지표 PER 카드(RightPanel MetricCard) + 데스크톱 테이블 PER 컬럼(CenterPanel, 스크리너/테마/관심종목 공용) + 모바일 리스트(MobileStockList). `eps_basis='ttm'`→파란 "TTM" / `'annual'`→회색 "연간" / `null`·미상→**배지 숨김**.
@@ -268,7 +281,7 @@
   - **검증**: `npm run build`(tsc+vite) 통과. 최신일 valuation 2,580행 중 **배지 표시 2,570 / 숨김 10**(eps_basis NULL = ④의 신규상장 소형주 — PER만 표시, 배지 없음으로 깨끗 처리). ③ ttm 2,442→2,437 감소분 5개도 이 NULL군에 포함돼 자연 숨김.
 - **🎉 TTM 전환 완료 (①~⑤ 전 단계)**: ①분기 수집(2일 분할, 고유 2,613종목) → ②결산월 백필(FDR, '12'/비12월 게이트) → ③TTM 계산(`ttm_earnings`, basis ttm 2,442/annual 331) → ④EPS=TTM 전환(`valuation.eps_basis`) → ⑤프론트 배지. **전종목 ~88%(2,437)가 TTM 기준 PER, 나머지는 연간 폴백으로 일관 표시.**
 - **푸시 주의**: ⑤는 프론트(Vercel 자동 배포)라 푸시 시 반영. ④ daily_update가 매일 16:00 eps_basis 채우므로 둘 다 푸시 필요.
-- **백로그(유지)**: SPAC 분기데이터 원천 오염 — `collect_quarterly`의 `extract_financials`가 SPAC 신탁계정을 손익으로 오추출(하나34호스팩 27.7조). 현재 compute_ttm/EPS는 SPAC 게이트 폴백으로 회피 중이나, `financials` 분기행 자체 정정은 미착수.
+- **백로그(✅ 닫힘, 2026-06-24)**: SPAC 분기데이터 원천 오염 — revenue falsy 폴백 버그 수정 + 하나34호스팩 오염행 삭제 완료. compute_ttm SPAC 게이트는 이중 안전장치로 유지. 상세는 위 "SPAC 분기데이터 오염 원천 수정" 기록 참고.
 - **파일**: `app/src/components/common/EpsBasisBadge.tsx`(신규), `types/stock.ts`, `hooks/{useScreenerStocks,useThemeData,useWatchlistStocks}.ts`, `components/layout/{RightPanel,CenterPanel}.tsx`, `components/mobile/MobileStockList.tsx`, `components/common/HelpPage.tsx`, `App.css`.
 
 ### 2026-06-24: TTM ④ valuation 연동 (EPS=TTM 전환) + 분기행 회귀 점검

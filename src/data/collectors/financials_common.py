@@ -67,18 +67,27 @@ def extract_financials(df, cumulative=False):
             return _amount(m.iloc[0])
         return None
 
-    revenue = (by_id(is_rows, 'ifrs-full_Revenue')
-               or by_name(is_rows, '매출액') or by_name(is_rows, '수익'))
-    operating_income = (by_id(is_rows, 'dart_OperatingIncomeLoss')
-                        or by_id(is_rows, 'ifrs-full_ProfitLossFromOperatingActivities')
-                        or by_name(is_rows, '영업이익'))
-    net_income = (by_id(is_rows, 'ifrs-full_ProfitLoss')
-                  or by_name(is_rows, '당기순이익') or by_name(is_rows, '당기순손익'))
+    def _first(*vals):
+        # None이 아닌 첫 값 채택. '0 or 다음'으로 넘어가던 falsy 폴백 버그 방지
+        # (예: SPAC은 ifrs-full_Revenue '영업수익'=0 → '0 or by_name("수익")'이
+        #  '금융수익' 같은 엉뚱한 행을 매출로 오추출. 0도 유효값(매출 0)으로 채택).
+        for v in vals:
+            if v is not None:
+                return v
+        return None
+
+    revenue = _first(by_id(is_rows, 'ifrs-full_Revenue'),
+                     by_name(is_rows, '매출액'), by_name(is_rows, '수익'))
+    operating_income = _first(by_id(is_rows, 'dart_OperatingIncomeLoss'),
+                              by_id(is_rows, 'ifrs-full_ProfitLossFromOperatingActivities'),
+                              by_name(is_rows, '영업이익'))
+    net_income = _first(by_id(is_rows, 'ifrs-full_ProfitLoss'),
+                        by_name(is_rows, '당기순이익'), by_name(is_rows, '당기순손익'))
     net_income_owners = by_id(is_rows, 'ifrs-full_ProfitLossAttributableToOwnersOfParent')
 
-    total_assets = by_id(bs_rows, 'ifrs-full_Assets') or by_name(bs_rows, '자산총계')
-    total_liabilities = by_id(bs_rows, 'ifrs-full_Liabilities') or by_name(bs_rows, '부채총계')
-    total_equity = by_id(bs_rows, 'ifrs-full_Equity') or by_name(bs_rows, '자본총계')
+    total_assets = _first(by_id(bs_rows, 'ifrs-full_Assets'), by_name(bs_rows, '자산총계'))
+    total_liabilities = _first(by_id(bs_rows, 'ifrs-full_Liabilities'), by_name(bs_rows, '부채총계'))
+    total_equity = _first(by_id(bs_rows, 'ifrs-full_Equity'), by_name(bs_rows, '자본총계'))
     equity_owners = by_id(bs_rows, 'ifrs-full_EquityAttributableToOwnersOfParent')
 
     # 개별재무제표(OFS) 등 지배/비지배 분리가 없으면 전체값으로 대체
