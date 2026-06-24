@@ -3,7 +3,9 @@
 
 게이트 통과 종목의 TTM 지배주주순이익/전체순이익을 계산해 ttm_earnings에 적재한다.
   · TTM = 직전 FY + 올해 동기 누적 − 작년 동기 누적
-          (현재 기준 = FY2025 + 2026Q1누적 − 2025Q1누적)
+          기준 분기는 detect_ttm_period()가 수집된 분기행에서 자동 감지한다
+          (2026-06 현재 FY2025 + 2026Q1누적 − 2025Q1누적. 8월 반기 수집 시 자동으로
+           FY2025 + 2026Q2누적 − 2025Q2누적으로 전환 — 코드 수정 불필요).
   · 누적은 분기행(source='dart_q', thstrm_add_amount 기반, 백만원 단위)
   · 지배주주 기준(net_income_owners) — 2026-06-19 전환. 전체(net_income)도 병행 저장.
 
@@ -31,15 +33,18 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
+from collections import Counter
+
 from utils import get_supabase, batch_upsert
 
 supabase = get_supabase()
 
-# 기준 분기 구성 (2026-06-24 기준). 분기 갱신 시 여기만 조정.
-BASE_FY = 2025          # 직전 사업연도
-Q_CURR = (2026, 'Q1')   # 올해 동기 누적
-Q_PRIOR = (2025, 'Q1')  # 작년 동기 누적
-AS_OF_TTM = '2026Q1'    # 최신 분기 라벨
+# 분기 라벨 시간순 (작년 동기 매칭 + 최신 분기 선택용)
+_Q_ORDER = ('Q1', 'Q2', 'Q3')
+
+# 충분히 제출된 분기로 인정할 비율 — 일찍 제출한 소수 종목의 분기를 '최신'으로
+# 오인하지 않도록, 올해 분기 중 최다 제출 분기의 이 비율 이상인 분기만 후보.
+_QUARTER_SUBMIT_RATIO = 0.7
 
 
 def fetch_all(query_builder):
@@ -73,19 +78,60 @@ def load_financial_point(fiscal_year, fiscal_quarter, source=None):
     return {r['stock_code']: r for r in rows}
 
 
+def detect_ttm_period():
+    """수집된 분기행(source='dart_q')에서 최신 TTM 기준 분기를 자동 감지한다.
+
+    하드코딩 대신 데이터 기반으로 굴러가게 함 — 8월에 2026 반기(Q2)를 수집하면
+    별도 수정 없이 TTM이 FY2025 + 2026Q2누적 − 2025Q2누적으로 자동 전환된다.
+
+    반환: (base_fy, q_curr=(year,Q), q_prior=(year,Q), as_of)
+      · q_curr = 가장 최신 연도에서 '충분히 제출된'(최다 분기의 70%+) 최신 분기.
+        일찍 제출한 소수 종목의 분기를 최신으로 오인하지 않게 비율 게이트를 둠 →
+        해당 분기가 아직 덜 수집됐으면 자동으로 직전 분기를 유지(안전한 보수).
+      · q_prior = 1년 전 같은 분기, base_fy = 그 연도의 직전 사업연도.
+    """
+    rows = fetch_all(lambda o: supabase.table('financials')
+                     .select('fiscal_year, fiscal_quarter')
+                     .eq('source', 'dart_q').range(o, o + 999))
+    cnt = Counter((r['fiscal_year'], r['fiscal_quarter']) for r in rows)
+    if not cnt:
+        raise RuntimeError("분기행(source='dart_q')이 없습니다 — collect_quarterly.py 먼저 실행 필요")
+
+    max_year = max(y for (y, _) in cnt)
+    year_counts = {q: cnt.get((max_year, q), 0) for q in _Q_ORDER}
+    peak = max(year_counts.values())
+    q_label = None
+    for q in reversed(_Q_ORDER):  # Q3→Q2→Q1, 충분히 제출된 최신 분기
+        if year_counts[q] > 0 and year_counts[q] >= peak * _QUARTER_SUBMIT_RATIO:
+            q_label = q
+            break
+    if q_label is None:  # 최신 연도에 분기 자체가 없으면 직전 연도로
+        max_year = max(y for (y, q) in cnt if q in _Q_ORDER)
+        year_counts = {q: cnt.get((max_year, q), 0) for q in _Q_ORDER}
+        peak = max(year_counts.values())
+        for q in reversed(_Q_ORDER):
+            if year_counts[q] > 0 and year_counts[q] >= peak * _QUARTER_SUBMIT_RATIO:
+                q_label = q
+                break
+
+    return (max_year - 1, (max_year, q_label), (max_year - 1, q_label), f"{max_year}{q_label}")
+
+
 def compute():
+    base_fy, q_curr_p, q_prior_p, as_of_ttm = detect_ttm_period()
     print("=" * 60)
     print("TTM 이익 계산 시작")
-    print(f"  공식: FY{BASE_FY} + {Q_CURR[0]}{Q_CURR[1]}누적 − {Q_PRIOR[0]}{Q_PRIOR[1]}누적")
+    print(f"  자동 감지 최신 분기: {as_of_ttm}")
+    print(f"  공식: FY{base_fy} + {q_curr_p[0]}{q_curr_p[1]}누적 − {q_prior_p[0]}{q_prior_p[1]}누적")
     print("=" * 60)
 
     meta = load_stocks_meta()
     all_codes = list(meta.keys())
-    fy = load_financial_point(BASE_FY, 'FY')                       # 연간(source 무관)
-    q_curr = load_financial_point(Q_CURR[0], Q_CURR[1], 'dart_q')  # 올해 동기
-    q_prior = load_financial_point(Q_PRIOR[0], Q_PRIOR[1], 'dart_q')  # 작년 동기
-    print(f"종목 {len(all_codes)} / FY{BASE_FY} {len(fy)} / "
-          f"{Q_CURR[0]}{Q_CURR[1]} {len(q_curr)} / {Q_PRIOR[0]}{Q_PRIOR[1]} {len(q_prior)}\n")
+    fy = load_financial_point(base_fy, 'FY')                          # 연간(source 무관)
+    q_curr = load_financial_point(q_curr_p[0], q_curr_p[1], 'dart_q')  # 올해 동기
+    q_prior = load_financial_point(q_prior_p[0], q_prior_p[1], 'dart_q')  # 작년 동기
+    print(f"종목 {len(all_codes)} / FY{base_fy} {len(fy)} / "
+          f"{q_curr_p[0]}{q_curr_p[1]} {len(q_curr)} / {q_prior_p[0]}{q_prior_p[1]} {len(q_prior)}\n")
 
     now = datetime.now(timezone.utc).isoformat()
     rows = []
@@ -132,10 +178,10 @@ def compute():
                 'ttm_net_income': ttm_total,
                 'ttm_net_income_owners': ttm_owners,
                 'basis': 'ttm',
-                'as_of': AS_OF_TTM,
+                'as_of': as_of_ttm,
                 'components': {
-                    'fy': BASE_FY, 'q_curr': f"{Q_CURR[0]}{Q_CURR[1]}",
-                    'q_prior': f"{Q_PRIOR[0]}{Q_PRIOR[1]}",
+                    'fy': base_fy, 'q_curr': f"{q_curr_p[0]}{q_curr_p[1]}",
+                    'q_prior': f"{q_prior_p[0]}{q_prior_p[1]}",
                     'fy_owners': fy_o, 'q_curr_owners': qc_o, 'q_prior_owners': qp_o,
                     'fy_total': fy_t, 'q_curr_total': qc_t, 'q_prior_total': qp_t,
                 },
@@ -149,7 +195,7 @@ def compute():
                 'ttm_net_income': f['net_income'] if f else None,
                 'ttm_net_income_owners': fy_o,
                 'basis': 'annual',
-                'as_of': f"FY{BASE_FY}" if f else None,
+                'as_of': f"FY{base_fy}" if f else None,
                 'components': {'reason': reason, 'settle_month': sm,
                                'has_fy': f is not None},
                 'updated_at': now,
