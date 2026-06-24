@@ -35,6 +35,7 @@ export interface Valuation {
   bps: number | null;
   div_yield: number | null;
   dps: number | null;
+  eps_basis: string | null;  // 'ttm' | 'annual' | null — PER 산정 기준
   source: string;
 }
 
@@ -168,6 +169,7 @@ export interface StockListItem {
   roe: number | null;
   debt_ratio: number | null;
   div_yield: number | null;
+  eps_basis: string | null;  // PER 산정 기준 (ttm/annual) — 배지 표시용
   total_score: number;
 }
 

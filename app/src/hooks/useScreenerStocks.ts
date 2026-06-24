@@ -123,6 +123,7 @@ export function useScreenerStocks(filters: ScreenerFilters | null) {
         roe: fin?.current?.roe ?? null,
         debt_ratio: fin?.current?.debt_ratio ?? null,
         div_yield: val?.div_yield ?? null,
+        eps_basis: val?.eps_basis ?? null,
         total_score: score.total_score,
       };
     });
@@ -180,6 +181,7 @@ interface ValInfo {
   per: number | null;
   pbr: number | null;
   div_yield: number | null;
+  eps_basis: string | null;
 }
 
 async function fetchAllValuations(codes: string[]): Promise<Record<string, ValInfo>> {
@@ -189,14 +191,14 @@ async function fetchAllValuations(codes: string[]): Promise<Record<string, ValIn
   for (const batch of batches) {
     const { data } = await supabase
       .from('valuation')
-      .select('stock_code, per, pbr, div_yield, trade_date')
+      .select('stock_code, per, pbr, div_yield, eps_basis, trade_date')
       .in('stock_code', batch)
       .order('trade_date', { ascending: false });
 
     if (data) {
       for (const row of data) {
         if (!result[row.stock_code]) {
-          result[row.stock_code] = { per: row.per, pbr: row.pbr, div_yield: row.div_yield };
+          result[row.stock_code] = { per: row.per, pbr: row.pbr, div_yield: row.div_yield, eps_basis: row.eps_basis };
         }
       }
     }

@@ -259,6 +259,18 @@
 
 ## 의사결정 기록
 
+### 2026-06-24: TTM ⑤ 프론트 배지 — TTM 전환 완료 🎉
+
+- **⑤ TTM/연간 배지 (`valuation.eps_basis` 기준)**: PER이 나오는 **전 위치에 일관 적용** — 종목상세 핵심지표 PER 카드(RightPanel MetricCard) + 데스크톱 테이블 PER 컬럼(CenterPanel, 스크리너/테마/관심종목 공용) + 모바일 리스트(MobileStockList). `eps_basis='ttm'`→파란 "TTM" / `'annual'`→회색 "연간" / `null`·미상→**배지 숨김**.
+  - **공용 컴포넌트** `components/common/EpsBasisBadge.tsx`: basis prop, null/미상이면 `null` 반환(자연 숨김). `title` 속성으로 hover 설명("TTM: 최근 4개 분기 합산 이익 / 연간: 직전 사업연도 이익").
+  - **데이터 흐름**: `Valuation`·`StockListItem` 타입에 `eps_basis` 추가. 종목상세(`useStockDetail`)는 `select('*')`라 자동 포함. 나머지 3훅(`useScreenerStocks`/`useThemeData`/`useWatchlistStocks`)의 valuation select + ValInfo 타입 + StockListItem 매핑에 `eps_basis` 추가.
+  - **도움말**: HelpPage 밸류에이션 섹션에 배지 의미 한 줄(샘플 배지 포함).
+  - **검증**: `npm run build`(tsc+vite) 통과. 최신일 valuation 2,580행 중 **배지 표시 2,570 / 숨김 10**(eps_basis NULL = ④의 신규상장 소형주 — PER만 표시, 배지 없음으로 깨끗 처리). ③ ttm 2,442→2,437 감소분 5개도 이 NULL군에 포함돼 자연 숨김.
+- **🎉 TTM 전환 완료 (①~⑤ 전 단계)**: ①분기 수집(2일 분할, 고유 2,613종목) → ②결산월 백필(FDR, '12'/비12월 게이트) → ③TTM 계산(`ttm_earnings`, basis ttm 2,442/annual 331) → ④EPS=TTM 전환(`valuation.eps_basis`) → ⑤프론트 배지. **전종목 ~88%(2,437)가 TTM 기준 PER, 나머지는 연간 폴백으로 일관 표시.**
+- **푸시 주의**: ⑤는 프론트(Vercel 자동 배포)라 푸시 시 반영. ④ daily_update가 매일 16:00 eps_basis 채우므로 둘 다 푸시 필요.
+- **백로그(유지)**: SPAC 분기데이터 원천 오염 — `collect_quarterly`의 `extract_financials`가 SPAC 신탁계정을 손익으로 오추출(하나34호스팩 27.7조). 현재 compute_ttm/EPS는 SPAC 게이트 폴백으로 회피 중이나, `financials` 분기행 자체 정정은 미착수.
+- **파일**: `app/src/components/common/EpsBasisBadge.tsx`(신규), `types/stock.ts`, `hooks/{useScreenerStocks,useThemeData,useWatchlistStocks}.ts`, `components/layout/{RightPanel,CenterPanel}.tsx`, `components/mobile/MobileStockList.tsx`, `components/common/HelpPage.tsx`, `App.css`.
+
 ### 2026-06-24: TTM ④ valuation 연동 (EPS=TTM 전환) + 분기행 회귀 점검
 
 - **③ 결과 사후 점검 2건 (깨끗 → ④ 진행)**:

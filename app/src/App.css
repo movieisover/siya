@@ -775,6 +775,28 @@
   margin-top: 2px;
 }
 
+/* PER 산정 기준 배지 (TTM/연간) */
+.eps-basis-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 4px;
+  vertical-align: middle;
+  letter-spacing: 0.2px;
+  cursor: help;
+}
+.eps-basis-ttm {
+  background: #16324f;
+  color: #5e9bff;
+}
+.eps-basis-annual {
+  background: #3a3a3a;
+  color: #a8a8a8;
+}
+
 /* 재무 추이 */
 .finance-table {
   font-size: 14px;

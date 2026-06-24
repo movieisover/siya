@@ -5,6 +5,7 @@ import type { Financials, StockScore } from '../../types/stock';
 import type { AppMode } from '../../App';
 import type { StockDetailData, CompetitorItem, CompetitorsData, DividendItem } from '../../hooks/useStockDetail';
 import Tooltip from '../common/Tooltip';
+import { EpsBasisBadge } from '../common/EpsBasisBadge';
 import DisclosureTab from '../stock-detail/DisclosureTab';
 import { useInvestorData } from '../../hooks/useInvestorData';
 import { createPortal } from 'react-dom';
@@ -207,6 +208,7 @@ DPS(주당배당금): 1주당 받는 배당금 (원)
               <MetricCard
                 label="PER"
                 value={valuation?.per}
+                badge={<EpsBasisBadge basis={valuation?.eps_basis} />}
                 sub={sectorAvg.per !== null ? `업종 평균 ${sectorAvg.per}` : undefined}
                 color={getMetricColor(valuation?.per, sectorAvg.per, 'lower')}
               />
@@ -967,17 +969,18 @@ function formatDivDate(dateStr: string): string {
 
 type MetricColor = 'good' | 'normal' | 'warning';
 
-function MetricCard({ label, value, unit = '', sub, color = 'normal' }: {
+function MetricCard({ label, value, unit = '', sub, color = 'normal', badge }: {
   label: string;
   value: number | null | undefined;
   unit?: string;
   sub?: string;
   color?: MetricColor;
+  badge?: React.ReactNode;
 }) {
   const colorClass = color === 'good' ? 'metric-good' : color === 'warning' ? 'metric-warning' : '';
   return (
     <div className="metric-card">
-      <div className="metric-label">{label}</div>
+      <div className="metric-label">{label}{badge}</div>
       <div className={`metric-value ${colorClass}`}>
         {value !== null && value !== undefined ? `${value}${unit}` : '-'}
       </div>

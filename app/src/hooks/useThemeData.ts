@@ -230,6 +230,7 @@ export function useThemeStocks(themeId: number | null) {
         roe: fin?.current?.roe ?? null,
         debt_ratio: null,
         div_yield: null,
+        eps_basis: val?.eps_basis ?? null,
         total_score: score.total_score,
       };
     });
@@ -364,20 +365,21 @@ async function fetchInvestorTrading(codes: string[]): Promise<Record<string, Inv
 interface ValInfo {
   per: number | null;
   pbr: number | null;
+  eps_basis: string | null;
 }
 
 async function fetchLatestValuations(codes: string[]): Promise<Record<string, ValInfo>> {
   const result: Record<string, ValInfo> = {};
   const { data } = await supabase
     .from('valuation')
-    .select('stock_code, per, pbr, trade_date')
+    .select('stock_code, per, pbr, eps_basis, trade_date')
     .in('stock_code', codes)
     .order('trade_date', { ascending: false });
 
   if (data) {
     for (const row of data) {
       if (!result[row.stock_code]) {
-        result[row.stock_code] = { per: row.per, pbr: row.pbr };
+        result[row.stock_code] = { per: row.per, pbr: row.pbr, eps_basis: row.eps_basis };
       }
     }
   }

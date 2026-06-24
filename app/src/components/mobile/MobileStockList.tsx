@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { StockListItem } from '../../types/stock';
+import { EpsBasisBadge } from '../common/EpsBasisBadge';
 
 // 정렬 칩 옵션
 type SortKey = 'total_score' | 'change_pct' | 'close' | 'per' | 'pbr' | 'roe';
@@ -148,7 +149,7 @@ function MobileStockRow({
             </span>
           )}
           {stock.per !== null && stock.per !== undefined && (
-            <span className="mobile-row-metric">PER {stock.per.toFixed(1)}</span>
+            <span className="mobile-row-metric">PER {stock.per.toFixed(1)}<EpsBasisBadge basis={stock.eps_basis} /></span>
           )}
           {stock.pbr !== null && stock.pbr !== undefined && (
             <span className="mobile-row-metric">PBR {stock.pbr.toFixed(2)}</span>

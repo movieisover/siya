@@ -8,6 +8,7 @@ import type { useUserThemes } from '../../hooks/useUserThemes';
 import { supabase } from '../../lib/supabase';
 import CandleChart from '../stock-detail/CandleChart';
 import SupplyChart from '../stock-detail/SupplyChart';
+import { EpsBasisBadge } from '../common/EpsBasisBadge';
 
 interface CenterPanelProps {
   mode: AppMode;
@@ -248,7 +249,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
                   {stock.total_score > 0 ? stock.total_score.toFixed(1) : '-'}
                 </span>
               </div>
-              <div className="col-metric">{formatMetric(stock.per)}</div>
+              <div className="col-metric">{formatMetric(stock.per)}<EpsBasisBadge basis={stock.eps_basis} /></div>
               <div className="col-metric">{formatMetric(stock.pbr)}</div>
               <div className="col-metric">{stock.roe !== null ? `${stock.roe}%` : '-'}</div>
               {showExtraCols && (

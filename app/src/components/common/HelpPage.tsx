@@ -50,6 +50,7 @@ export default function HelpPage({ onClose }: HelpPageProps) {
                 </tbody>
               </table>
               <p className="help-note">* 따라서 같은 종목이라도 테마/스크리너/검색에서 종합점수가 약간 다를 수 있습니다. 이는 비교 대상 그룹이 다르기 때문입니다.</p>
+              <p style={{marginTop: '8px', fontSize: '13px'}}><strong>PER 옆 배지(<span className="eps-basis-badge eps-basis-ttm">TTM</span> / <span className="eps-basis-badge eps-basis-annual">연간</span>)</strong> — PER 산정에 쓴 이익 기준입니다. <strong>TTM</strong>은 최근 4개 분기 합산 이익(최신 실적 반영), <strong>연간</strong>은 직전 사업연도 이익입니다. 대부분 TTM이며, 분기 데이터가 없거나 비(非)12월 결산 등 일부 종목만 연간으로 표시됩니다.</p>
             </div>
 
             <div className="help-subsection">
