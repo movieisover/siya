@@ -44,8 +44,13 @@ export default function MobileStockList({
   }
 
   const sorted = [...stocks].sort((a, b) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
+    let av = a[sortKey];
+    let bv = b[sortKey];
+    // PER 적자(0 폴백)는 측정불가 → null처럼 맨 뒤로
+    if (sortKey === 'per') {
+      if (av === 0) av = null;
+      if (bv === 0) bv = null;
+    }
     if (av === null || av === undefined) return 1;
     if (bv === null || bv === undefined) return -1;
     const cmp = (av as number) - (bv as number);
@@ -149,7 +154,7 @@ function MobileStockRow({
             </span>
           )}
           {stock.per !== null && stock.per !== undefined && (
-            <span className="mobile-row-metric">PER {stock.per.toFixed(1)}<EpsBasisBadge basis={stock.eps_basis} /></span>
+            <span className="mobile-row-metric">PER {stock.per === 0 ? <span className="per-loss">적자</span> : stock.per.toFixed(1)}<EpsBasisBadge basis={stock.eps_basis} /></span>
           )}
           {stock.pbr !== null && stock.pbr !== undefined && (
             <span className="mobile-row-metric">PBR {stock.pbr.toFixed(2)}</span>

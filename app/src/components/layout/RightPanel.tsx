@@ -208,9 +208,10 @@ DPS(주당배당금): 1주당 받는 배당금 (원)
               <MetricCard
                 label="PER"
                 value={valuation?.per}
+                display={valuation?.per === 0 ? <span className="per-loss">적자</span> : undefined}
                 badge={<EpsBasisBadge basis={valuation?.eps_basis} />}
                 sub={sectorAvg.per !== null ? `업종 평균 ${sectorAvg.per}` : undefined}
-                color={getMetricColor(valuation?.per, sectorAvg.per, 'lower')}
+                color={valuation?.per === 0 ? 'normal' : getMetricColor(valuation?.per, sectorAvg.per, 'lower')}
               />
               <MetricCard
                 label="PBR"
@@ -969,20 +970,23 @@ function formatDivDate(dateStr: string): string {
 
 type MetricColor = 'good' | 'normal' | 'warning';
 
-function MetricCard({ label, value, unit = '', sub, color = 'normal', badge }: {
+function MetricCard({ label, value, unit = '', sub, color = 'normal', badge, display }: {
   label: string;
   value: number | null | undefined;
   unit?: string;
   sub?: string;
   color?: MetricColor;
   badge?: React.ReactNode;
+  display?: React.ReactNode;  // 값 대신 표시할 노드 (예: PER 적자)
 }) {
   const colorClass = color === 'good' ? 'metric-good' : color === 'warning' ? 'metric-warning' : '';
   return (
     <div className="metric-card">
       <div className="metric-label">{label}{badge}</div>
       <div className={`metric-value ${colorClass}`}>
-        {value !== null && value !== undefined ? `${value}${unit}` : '-'}
+        {display !== undefined
+          ? display
+          : value !== null && value !== undefined ? `${value}${unit}` : '-'}
       </div>
       {sub && <div className="metric-sub">{sub}</div>}
     </div>

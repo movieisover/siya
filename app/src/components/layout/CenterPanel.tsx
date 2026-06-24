@@ -93,8 +93,13 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
   }
 
   const sorted = [...stocks].sort((a, b) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
+    let av = a[sortKey];
+    let bv = b[sortKey];
+    // PER 적자(0 폴백)는 '저평가'가 아니라 측정불가 → null처럼 맨 뒤로
+    if (sortKey === 'per') {
+      if (av === 0) av = null;
+      if (bv === 0) bv = null;
+    }
     if (av === null || av === undefined) return 1;
     if (bv === null || bv === undefined) return -1;
     const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number);
@@ -249,7 +254,7 @@ export default function CenterPanel({ mode, selectedThemeId, selectedStockCode, 
                   {stock.total_score > 0 ? stock.total_score.toFixed(1) : '-'}
                 </span>
               </div>
-              <div className="col-metric">{formatMetric(stock.per)}<EpsBasisBadge basis={stock.eps_basis} /></div>
+              <div className="col-metric">{stock.per === 0 ? <span className="per-loss">적자</span> : formatMetric(stock.per)}<EpsBasisBadge basis={stock.eps_basis} /></div>
               <div className="col-metric">{formatMetric(stock.pbr)}</div>
               <div className="col-metric">{stock.roe !== null ? `${stock.roe}%` : '-'}</div>
               {showExtraCols && (
