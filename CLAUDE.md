@@ -81,6 +81,26 @@
 
 ---
 
+## 작업 진행 원칙 (자율성)
+
+**기본값은 묻지 말고 진행이다.** 동철님은 매 단계 yes/no 컨펌을 위해 대기하지 않는다. 판단이 서면 실행하고, 결과를 보고한다.
+
+**멈추고 물어봐야 하는 경우 (이때만):**
+1. **되돌릴 수 없는 파괴적 작업** — 데이터 삭제, 테이블 드롭, 대량 행 영구 변경 등
+2. **돈이 드는 작업** — API 크레딧 대량 소모, 유료 전환
+3. **설계가 갈리는 분기점** — 둘 이상의 합리적 선택지가 있고, 어느 쪽이냐에 따라 이후 작업이 크게 달라질 때 (예: 스키마 구조 결정)
+4. **사전 가정이 틀렸다고 판명될 때** — 작업 전제(데이터 존재 여부, 스키마 형태 등)가 실제와 다르면, 임의로 우회하지 말고 멈춰서 보고
+
+**그 외에는 전부 알아서 진행한다:**
+- 구현 방식, 변수명, 파일 구조, 라이브러리 선택 등은 재량
+- 사소한 버그 수정, 명백한 개선은 진행 후 보고
+- 검증·테스트는 묻지 말고 항상 수행
+- 막히면 yes/no로 묻지 말고, "A를 시도했고 안 돼서 B로 갔다" 식으로 진행한 뒤 결과를 보고
+
+보고는 작업 단위가 끝났을 때 한 번에. 중간에 "이렇게 할까요?"로 끊지 않는다.
+
+---
+
 ## 현재 진행 상태
 
 ### Phase 1: 데이터 탐색 ✅ 완료
@@ -238,6 +258,21 @@
 ---
 
 ## 의사결정 기록
+
+### 2026-06-24: TTM 데이터 레이어 완성 — 결산월 백필(②) + TTM 계산(③)
+
+- **②결산월 백필 (`backfill_settle_month.py`, `docs/migrate_stocks_settle_month.sql`)**: `stocks.settle_month` 컬럼(text) 추가 후 FDR `KRX-DESC.SettleMonth`로 백필. **DART 0콜**.
+  - **게이트 통일(핵심 함정 회피)**: FDR `'12월'` → 숫자추출+zfill → **`'12'`(월 2자리)** 저장 → `compute_ttm` 게이트 `settle_month='12'`와 정확히 일치. 한글 '월' 남으면 게이트 전부 false 나 TTM 0종목 되는 함정.
+  - 결과: 전종목 2,773 / **12월 2,587 · 비12월 54 · NULL 132**. 비12월 54는 6/24 실측(dart_q 모수 33)과 정합(모수가 전종목으로 넓어져 +21, 대부분 리츠). 신영증권(001720)=`'03'` 정확. NULL 132 = 우선주류 113 + 스팩 12 + 기타 7(FDR KRX-DESC=보통주 상장정보라 우선주·스팩 부재 → 폴백 정상).
+- **③TTM 계산 (`compute_ttm.py` → `ttm_earnings`)**: 게이트 통과 종목의 TTM 지배주주/전체 순이익 적재.
+  - 공식: **TTM = FY2025 + 2026Q1누적 − 2025Q1누적** (누적은 분기행 `thstrm_add_amount` 기반, 백만원 단위). 지배주주(net_income_owners) 기준 + 전체(net_income) 병행.
+  - **전제 확인 통과**: 분기행 `net_income_owners` 99.8% 적재(10,251/10,268, 비지배 분리 실재 4,973행) → 멈출 사유 없음. `ttm_earnings` 스키마(OpenAPI로 확인: stock_code PK, ttm_net_income, ttm_net_income_owners, basis, as_of, components jsonb, updated_at)가 명세와 일치 → DDL 추가 불필요.
+  - **basis 원천화**: 전종목 행 생성, `basis`로 `'ttm'`/`'annual'` 구분(행 없음=폴백 아님, 디버깅 지옥 회피). 폴백 행은 ttm_* 컬럼에 직전 FY값 넣어 ④복사 단순화(basis가 해석 주체). `components`(jsonb)에 계산근거(fy/q_curr/q_prior/각 구성값) 또는 폴백사유 기록. **NULL=폴백 / 0=유효 / 음수=그대로 저장**.
+  - **결과: `basis='ttm'` 2,442 / `'annual'` 331** (폴백사유: spac 79 · non_dec_settle 54 · missing_quarter 50 · missing_fy 21 · unknown_settle 120 · null_owners 7).
+  - **검증**: SK하이닉스 owners 99.9%(비지배 0.1%, 6/19 부합) / 삼성물산 62.9%(비지배 37.1%, 6/19 부합) / 음수 TTM 937종목(SK이노 -2.15조·LG화학 -2.06조 등 현실적) / 양수 상위 삼성전자 83조·하이닉스 75조 현실적.
+- **⚠️ 발견 — SPAC 분기데이터 오염(원천)**: 하나34호스팩(484130) 2025Q1 행 `net_income=27.7조`(신탁계정 총액이 손익으로 오추출). TTM −27.7조 outlier 유발. → **`compute_ttm` 게이트에 종목명 '스팩' 강제 폴백(reason='spac')** 추가로 회피(6/22 SPAC 폴백 정책의 코드화). **단 `financials` 테이블의 오염 분기행은 잔존** — 스크리너 등 다른 소비자 영향 가능 → **백로그**: `collect_quarterly`의 `extract_financials`가 SPAC 신탁계정을 매출/손익으로 오추출하는 문제 별도 수정 필요.
+- **파일**: `src/data/collectors/backfill_settle_month.py`, `compute_ttm.py`, `docs/migrate_stocks_settle_month.sql`.
+- **다음 단계**: ④ `update_valuation`/`daily_update` 연동(EPS = `ttm_net_income_owners`÷주식수, `valuation.eps_basis = ttm_earnings.basis` 복사) → ⑤ 프론트 TTM/연간 배지(eps_basis 기준).
 
 ### 2026-06-24: TTM 분기 수집 빌드 1차 + 게이트 설계 확정
 
