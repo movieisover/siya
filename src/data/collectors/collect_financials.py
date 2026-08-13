@@ -42,9 +42,29 @@ def get_codes_with_owners(supabase):
     return codes
 
 
-def collect_financials(remigrate=False):
+def get_codes_with_cfo(supabase):
+    """cfo(확장 컬럼)가 이미 채워진 종목 코드 집합 (B-1 확장 백필 재개용).
+
+    cfo는 실측상 전 종목(금융 포함) 100% 매칭이라 'cfo NOT NULL = 확장 수집 완료'로
+    안전하게 간주한다. (매출원가/유동구분 부재는 업종 특성이라 게이트 기준으로 부적합 → cfo 사용.)
+    """
+    codes = set()
+    offset = 0
+    while True:
+        res = supabase.table('financials').select('stock_code')\
+            .not_.is_('cfo', 'null').range(offset, offset + 999).execute()
+        for r in res.data:
+            codes.add(r['stock_code'])
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return codes
+
+
+def collect_financials(remigrate=False, expand=False):
+    mode_tag = "  [재수집: 지배주주 컬럼]" if remigrate else ("  [확장: B-1 6계정]" if expand else "")
     print("=" * 60)
-    print(f"재무제표 수집 시작" + ("  [재수집: 지배주주 컬럼]" if remigrate else ""))
+    print(f"재무제표 수집 시작" + mode_tag)
     print(f"대상 연도: {YEARS}")
     print("=" * 60)
 
@@ -54,6 +74,11 @@ def collect_financials(remigrate=False):
         done = get_codes_with_owners(supabase)
         remaining = [s for s in stocks_list if s['stock_code'] not in done]
         print(f"전체: {len(stocks_list)}개 / 지배주주 완료: {len(done)}개 / 남음: {len(remaining)}개\n")
+    elif expand:
+        # B-1 확장 6계정이 아직 없는 종목만 (cfo NULL 기준, 중단/재개 가능)
+        done = get_codes_with_cfo(supabase)
+        remaining = [s for s in stocks_list if s['stock_code'] not in done]
+        print(f"전체: {len(stocks_list)}개 / 확장 완료: {len(done)}개 / 남음: {len(remaining)}개\n")
     else:
         collected = get_collected_codes(supabase, 'financials')
         remaining = [s for s in stocks_list if s['stock_code'] not in collected]
@@ -146,6 +171,12 @@ def collect_financials(remigrate=False):
                     'total_liabilities': to_million(total_liabilities),
                     'total_equity': to_million(total_equity),
                     'equity_owners': to_million(equity_owners),
+                    'cost_of_sales': to_million(acc['cost_of_sales']),
+                    'gross_profit': to_million(acc['gross_profit']),
+                    'cash_and_equiv': to_million(acc['cash_and_equiv']),
+                    'current_assets': to_million(acc['current_assets']),
+                    'current_liabilities': to_million(acc['current_liabilities']),
+                    'cfo': to_million(acc['cfo']),
                     'roe': roe,
                     'roa': roa,
                     'debt_ratio': debt_ratio,
@@ -193,5 +224,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='재무제표 수집')
     parser.add_argument('--remigrate', action='store_true',
                         help='지배주주 컬럼(net_income_owners) 미수집 종목만 재수집 (재개 가능)')
+    parser.add_argument('--expand', action='store_true',
+                        help='B-1 확장 6계정(매출원가/매출총이익/현금성/유동자산·부채/CFO) 미수집(cfo NULL) 종목만 재수집 (재개 가능)')
     args = parser.parse_args()
-    collect_financials(remigrate=args.remigrate)
+    collect_financials(remigrate=args.remigrate, expand=args.expand)

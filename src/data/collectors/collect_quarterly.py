@@ -199,6 +199,12 @@ def collect_quarterly(resume=False):
                     'total_liabilities': to_million(acc['total_liabilities']),
                     'total_equity': to_million(acc['total_equity']),
                     'equity_owners': to_million(acc['equity_owners']),
+                    'cost_of_sales': to_million(acc['cost_of_sales']),
+                    'gross_profit': to_million(acc['gross_profit']),
+                    'cash_and_equiv': to_million(acc['cash_and_equiv']),
+                    'current_assets': to_million(acc['current_assets']),
+                    'current_liabilities': to_million(acc['current_liabilities']),
+                    'cfo': to_million(acc['cfo']),
                     'source': 'dart_q',
                 })
 

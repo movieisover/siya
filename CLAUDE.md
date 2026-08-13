@@ -263,6 +263,31 @@
 
 ## 의사결정 기록
 
+### 2026-08-13: 재무 계정 확장 (B-1) — 총이익성·Piotroski F-score 원자료 6컬럼 추가
+
+- **배경**: 별도 프로젝트 시야트레이더(자동매매) 종목선정에 정통 팩터(가치×수익성 + Piotroski F-score 밸류트랩 게이트)를 도입하려는데, `financials`의 기존 8계정으로는 총이익성(GP/자산, Novy-Marx)·유동비율(F⑥)·발생액(F②④, CFO)이 계산 불가. 핸드오프(`docs/핸드오프_재무확장.md`)가 4종=6컬럼 확장을 요구. **시야는 원자료만 채우고, 팩터 산출은 소비자(시야트레이더) 몫.**
+- **실측 선행 (게이트)**: `check_financial_expansion.py`(일회성 진단, 샘플 28종목 제조/바이오/서비스/금융/유통/지주 혼합)로 사전 검증 — 이 프로젝트 확립 워크플로(샘플 진단 → 전체 실행).
+  - **핵심 전제 확인 — finstate_all에 CF 구간 100% 포함(28/28)** → CFO를 별도 조회 없이 같은 df에서 추출 가능. 설계 성립.
+  - 부재는 전부 업종 특성 NULL(금융·순수서비스의 매출원가/유동구분 부재)로 깨끗하게 갈림. CFO는 금융 포함 100%.
+- **추가 컬럼 6종 (연간·분기 공용, 백만원)**: `cost_of_sales`·`gross_profit`·`cash_and_equiv`·`current_assets`·`current_liabilities`·`cfo`. `docs/migrate_financials_expansion.sql`로 `ADD COLUMN IF NOT EXISTS` + `NOTIFY pgrst`(owners 선례 형식).
+  - account_id 우선 매칭: 매출원가 `ifrs-full_CostOfSales` / 매출총이익 `ifrs-full_GrossProfit` / 현금성 `ifrs-full_CashAndCashEquivalents` / 유동자산 `ifrs-full_CurrentAssets` / 유동부채 `ifrs-full_CurrentLiabilities` / CFO `ifrs-full_CashFlowsFromUsedInOperatingActivities`. 이름 폴백은 소수 안전장치(실측상 거의 account_id 매칭).
+  - **CFO는 `sj_div='CF'` 구간에서 추출** — `extract_financials`가 기존 IS/CIS/BS만 봤으나 CF 구간 추가. 분기(cumulative=True)면 `_amount`가 `thstrm_add_amount`(누적)를 우선하므로 CFO도 누적, BS 3종은 시점 잔액이라 thstrm 폴백.
+  - **매출총이익 산출**: GrossProfit 직접 계정 우선 → 없으면 `revenue − cost_of_sales` 계산 폴백. 실측상 보유 종목은 전부 직접 계정(폴백 발동 0).
+- **코드 변경**:
+  - `financials_common.py`: CF 구간 + 6계정 추출 + gross_profit 폴백. 반환 dict 6키 추가. (연간·분기 공용이라 한 곳 수정으로 둘 다 반영)
+  - `collect_financials.py`: 저장 dict 6컬럼 + **`--expand` 재수집 게이트**(`cfo IS NULL` 기준, 중단/재개 가능). 기존 `--remigrate`(net_income_owners 기준)와 분리 — remigrate는 지금 전부 완료라 게이트로 못 씀.
+  - `collect_quarterly.py`: 저장 dict 6컬럼(게이트 무변경, 8/15 전체 재수집 예정).
+  - `daily_update.py`: 우선주 복사(Step 2b) dict에 6컬럼 추가 — 안 하면 삼성전자우·현대차2우B만 6컬럼 NULL(반쪽). 매일 도는 로직 중 유일한 확장 지점.
+- **검증**: mock df 단위테스트 5케이스(GP직접/GP계산폴백/음수CFO보존/금융NULL/분기누적) 전부 통과.
+- **연간 재수집 완료 (`--expand`, 2일 분할)**: 1차 2,599종목 9,002콜 → 2차 잔여 171성공/158건너뜀/2오류 680콜.
+  - **커버리지(FY 7,603행)**: cfo 99.7%(7,583) · 현금성 98.6%(7,500) · 유동자산 97.8%(7,436) · 유동부채 97.2%(7,389) · 매출총이익 90.2%(6,857) · 매출원가 89.0%(6,763). NULL 비율이 "매출총이익 > 유동구분 > 현금성 > CFO" 순 = 업종 특성과 정합(총이익성 부적합 업종이 가장 넓음).
+  - 검증 종목: 삼성전자 6컬럼 전부 채움(GP 2025 131조), KB금융 5컬럼 NULL·cfo만 채움(은행 정상).
+  - 건너뜀 158 = 우선주·SPAC·신규/폐지·부실 소형주(DART 재무 없음, owners 재수집과 동일 꼬리). 오류 2건 = upsert 실패, cfo NULL로 남아 다음 `--expand` 시 self-heal.
+- **📌 남은 작업 (8/15 이후)**: 분기 6컬럼 백필 — `collect_quarterly.py`를 **`--resume` 없이** 전체 재실행하면 2025 Q1~Q3·2026 Q1 기존 분기행에 6컬럼 백필 + 2026 Q2 신규가 한 번에. (TTM 8월 액션과 같은 실행에 흡수. `--resume`은 종목 통째 skip이라 6컬럼·신규분기 둘 다 못 채움 — 금지.)
+- **자동화 영향 없음**: 재무/분기 수집은 GitHub Actions 미등록(시즌별 수동), daily_update는 6컬럼 미소비(EPS는 net_income_owners만) → 워크플로 신설·수정 불필요. 6컬럼은 향후 시즌 수집에 코드로 자동 포함.
+- **핸드오프 §5 회신 완료** — 시야트레이더에 ①추가컬럼 ②커버리지(연간 확정) ③예외(OFS/SPAC/우선주/비12월) ④매출총이익 산출 ⑤예상외(CFO 99.7%, NULL=팩터부적합 신호) 전달. 분기 커버리지는 8/15 후 갱신.
+- **파일**: `src/data/collectors/financials_common.py`, `collect_financials.py`, `collect_quarterly.py`, `daily_update.py`, `check_financial_expansion.py`(진단), `docs/migrate_financials_expansion.sql`.
+
 ### 2026-06-24: PER 적자 표시 (PER "0" → "적자")
 
 - **배경**: 적자 종목(EPS<0 → `daily_update`가 PER<0을 **0으로 폴백**)이 화면에 "PER 0"으로 떠 **초저평가 착시**(SK이노 "PER 0 / 업종평균 16.5"로 싸 보임). PER 0은 현실에 없는 값 → "적자"가 정확(측정불가) + 이유까지 전달(KRX도 음수지표 "산출불가" 관행).

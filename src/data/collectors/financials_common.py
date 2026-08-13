@@ -45,6 +45,7 @@ def extract_financials(df, cumulative=False):
     """
     is_rows = df[df['sj_div'].isin(['IS', 'CIS'])]
     bs_rows = df[df['sj_div'] == 'BS']
+    cf_rows = df[df['sj_div'] == 'CF']  # 현금흐름표 — CFO(영업활동현금흐름) 추출용 (B-1 확장)
 
     def _amount(row):
         # cumulative이면 누적 컬럼 우선, 없으면 당기금액으로 폴백
@@ -97,6 +98,38 @@ def extract_financials(df, cumulative=False):
     if equity_owners is None:
         equity_owners = total_equity
 
+    # ── 확장 계정 (B-1: 총이익성·유동비율·발생액·Piotroski F-score 원자료) ──
+    # 시야는 원자료만 채운다. 팩터(GP/자산, 유동비율, CFO>ROA 등) 산출은 소비자(시야트레이더) 몫.
+    # cumulative=True(분기)면 by_id/by_name 내부 _amount가 thstrm_add_amount(누적)를 우선하므로
+    # CF/IS 항목은 자동으로 누적 기준이 된다. BS는 시점 잔액이라 thstrm_amount로 자연 폴백.
+
+    # 손익(IS): 매출원가·매출총이익. 금융/일부 서비스업(NAVER·카카오 등)은 매출원가 개념이
+    #           없어 부재(NULL이 정상 — 그 업종은 총이익성 팩터 부적합).
+    cost_of_sales = _first(by_id(is_rows, 'ifrs-full_CostOfSales'),
+                           by_name(is_rows, '매출원가'))
+    gross_profit = _first(by_id(is_rows, 'ifrs-full_GrossProfit'),
+                          by_name(is_rows, '매출총이익'))
+    # 매출총이익 폴백: GrossProfit 계정이 없으면 매출액 − 매출원가로 산출(둘 다 있을 때만).
+    # (실측상 GrossProfit 보유 종목은 전부 직접 계정 → 이 폴백은 소수 안전장치.)
+    if gross_profit is None and revenue is not None and cost_of_sales is not None:
+        gross_profit = revenue - cost_of_sales
+
+    # 재무상태표(BS): 현금성자산·유동자산·유동부채. 금융업은 유동/비유동 미구분이라 부재 가능(정상).
+    cash_and_equiv = _first(by_id(bs_rows, 'ifrs-full_CashAndCashEquivalents'),
+                            by_name(bs_rows, '현금및현금성자산'))
+    current_assets = _first(by_id(bs_rows, 'ifrs-full_CurrentAssets'),
+                            by_name(bs_rows, '유동자산'))
+    current_liabilities = _first(by_id(bs_rows, 'ifrs-full_CurrentLiabilities'),
+                                 by_name(bs_rows, '유동부채'))
+
+    # 현금흐름표(CF): 영업활동현금흐름(CFO). account_id가 표준이라 실측상 전 종목(금융 포함)
+    #                100% 매칭. 이름 폴백은 정확한 명칭 우선 → 최후에 '영업활동' 부분일치
+    #                (CF 구간 내 검색이라 대분류가 하위항목보다 먼저 나와 오추출 위험 낮음).
+    cfo = _first(by_id(cf_rows, 'ifrs-full_CashFlowsFromUsedInOperatingActivities'),
+                 by_name(cf_rows, '영업활동현금흐름'),
+                 by_name(cf_rows, '영업활동으로인한현금흐름'),
+                 by_name(cf_rows, '영업활동'))
+
     return {
         'revenue': revenue,
         'operating_income': operating_income,
@@ -106,4 +139,11 @@ def extract_financials(df, cumulative=False):
         'total_liabilities': total_liabilities,
         'total_equity': total_equity,
         'equity_owners': equity_owners,
+        # 확장 계정 (B-1)
+        'cost_of_sales': cost_of_sales,
+        'gross_profit': gross_profit,
+        'cash_and_equiv': cash_and_equiv,
+        'current_assets': current_assets,
+        'current_liabilities': current_liabilities,
+        'cfo': cfo,
     }
