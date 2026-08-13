@@ -52,3 +52,6 @@ supabase/.temp/
 # OS
 .DS_Store
 Thumbs.db
+
+# OpenDartReader 회사코드 캐시 (날짜별 8MB 바이너리, 자동 재생성)
+docs_cache/*.pkl
