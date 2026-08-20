@@ -283,10 +283,14 @@
   - **커버리지(FY 7,603행)**: cfo 99.7%(7,583) · 현금성 98.6%(7,500) · 유동자산 97.8%(7,436) · 유동부채 97.2%(7,389) · 매출총이익 90.2%(6,857) · 매출원가 89.0%(6,763). NULL 비율이 "매출총이익 > 유동구분 > 현금성 > CFO" 순 = 업종 특성과 정합(총이익성 부적합 업종이 가장 넓음).
   - 검증 종목: 삼성전자 6컬럼 전부 채움(GP 2025 131조), KB금융 5컬럼 NULL·cfo만 채움(은행 정상).
   - 건너뜀 158 = 우선주·SPAC·신규/폐지·부실 소형주(DART 재무 없음, owners 재수집과 동일 꼬리). 오류 2건 = upsert 실패, cfo NULL로 남아 다음 `--expand` 시 self-heal.
-- **📌 남은 작업 (8/15 이후)**: 분기 6컬럼 백필 — `collect_quarterly.py`를 **`--resume` 없이** 전체 재실행하면 2025 Q1~Q3·2026 Q1 기존 분기행에 6컬럼 백필 + 2026 Q2 신규가 한 번에. (TTM 8월 액션과 같은 실행에 흡수. `--resume`은 종목 통째 skip이라 6컬럼·신규분기 둘 다 못 채움 — 금지.)
+- **분기 백필 완료 (8/20, `--resume` 버그 수정 포함)**: `collect_quarterly.py` 전체 재수집로 2026 Q2 신규 + 2025 Q1~Q3·2026 Q1 기존 분기행 6컬럼 백필 완료. 2026 Q2 행수 2,540(2025 Q2 2,592와 나란함). 이후 `compute_ttm.py`로 TTM 재계산(2026Q2 자동 감지, basis ttm 2,442/annual 331).
+  - **분기 커버리지(Q1~Q3 11,679행)**: cfo 60.1%(7,022) · 유동자산 58.5%(6,837) · 매출총이익 54.7%(6,387). ← 연간(99.7%)보다 낮게 보이나 정상: 분모에 '제출 안 한 분기'(많은 중소형이 분기 생략, 반기·연간만 제출)가 섮여 분모가 부풀. 서열(cfo>유동>매출총이익)은 연간과 동일 = 업종 특성 재현.
+  - **🚨 `--resume` 버그 발견·수정 (중요 교훈)**: 8/20 1차가 8,500 가드에서 끊긴 뒤 `--resume`으로 이어받았는데, 구(구) 게이트 `get_codes_with_quarterly`가 **'Q1/Q2/Q3 중 아무거나 행 있으면 완료'**로 판정 → 기존 분기행(2025·2026Q1)만 있고 **2026 Q2는 없는** 종목을 전부 건너뛰어 **2026 Q2가 절반(1,400)만 수집되는 사고**. compute_ttm도 최신분기를 Q1로 오감지.
+    - **수정**: 게이트를 `get_codes_with_latest_quarter(latest_year, latest_q)`로 교체 — **'최신 분기'(2026 Q2) 행 유무**로 판정. 최신 분기는 `max(eligible_combos(), key=lambda c:(c[0],c[2]))`로 산출(⚠ combos는 [올해,작년]×Q1→Q3 순이라 **리스트가 시간순이 아니다** — `[-1]`은 2025 Q3 반환, 반드시 정렬 최댓값). 하드코딩 없이 시점만 바뀌면 자동 갱신.
+    - **교훈**: '새 분기 추가 수집'과 '한도 분할 이어받기'는 다른 상황. 전자는 `--resume` 금지(전체 재실행), 후자는 `--resume` 허용. 수정 후엔 `--resume`가 '최신분기 없는 종목'만 이어받아 둘 다 안전. (수정 후 재실행: 남음 1,373 → 성공 1,213/건너뜀 160, 2026 Q2 2,540 복구)
+- **핸드오프 §5 회신 완료** — `docs/회신_재무확장_B1.md` 작성(시야트레이더가 읽고 팩터 조작적 정의 확정용). ①추가컬럼 ②커버리지(연간+분기) ③예외 ④매출총이익 산출 ⑤예상외 + F-score 9항목 매핑(②④⑥⑧ 이번 확장으로 성립) + 팩터 산출 주의(분기행 누적·음수CFO·NULL은 0 아님).
 - **자동화 영향 없음**: 재무/분기 수집은 GitHub Actions 미등록(시즌별 수동), daily_update는 6컬럼 미소비(EPS는 net_income_owners만) → 워크플로 신설·수정 불필요. 6컬럼은 향후 시즌 수집에 코드로 자동 포함.
-- **핸드오프 §5 회신 완료** — 시야트레이더에 ①추가컬럼 ②커버리지(연간 확정) ③예외(OFS/SPAC/우선주/비12월) ④매출총이익 산출 ⑤예상외(CFO 99.7%, NULL=팩터부적합 신호) 전달. 분기 커버리지는 8/15 후 갱신.
-- **파일**: `src/data/collectors/financials_common.py`, `collect_financials.py`, `collect_quarterly.py`, `daily_update.py`, `check_financial_expansion.py`(진단), `docs/migrate_financials_expansion.sql`.
+- **파일**: `src/data/collectors/financials_common.py`, `collect_financials.py`, `collect_quarterly.py`(--resume 버그 수정), `daily_update.py`, `check_financial_expansion.py`(진단), `docs/migrate_financials_expansion.sql`, `docs/회신_재무확장_B1.md`.
 
 ### 2026-06-24: PER 적자 표시 (PER "0" → "적자")
 

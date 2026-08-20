@@ -81,17 +81,22 @@ def eligible_combos(today=None):
     return combos
 
 
-def get_codes_with_quarterly(supabase):
-    """분기 행(fiscal_quarter in Q1/Q2/Q3)이 이미 있는 종목 코드 집합 (이틀 분할 재개용).
+def get_codes_with_latest_quarter(supabase, latest_year, latest_q):
+    """이번 시즌 '최신 분기'(예: 2026 Q2) 행이 이미 있는 종목 코드 집합 (--resume 재개 판정용).
 
-    종목별로 모든 분기를 모은 뒤 끝에서 일괄 upsert하므로(부분 저장 없음),
-    '분기 행이 하나라도 있으면 그 종목은 수집 완료'로 안전하게 간주할 수 있다.
+    ⚠ 과거 버그(2026-08 매개 수정): 예전엔 'Q1/Q2/Q3 중 아무거나 행이 있으면 완료'로 봤으나,
+    그러면 새 분기를 추가하는 시즌에 '기존 분기행만 있고 최신 분기는 없는' 종목이
+    완료로 오판되어 건너뛰었다(2026 Q2 절반만 수집되는 사고). 반드시 '최신 분기'
+    유무로 판정해야 한도 분할 이어받기가 정확하다.
+
+    latest_year/latest_q는 eligible_combos()[-1]에서 넘긴다(올해 최신 분기, 하드코딩 없음).
     """
     codes = set()
     offset = 0
     while True:
         res = supabase.table('financials').select('stock_code')\
-            .in_('fiscal_quarter', ['Q1', 'Q2', 'Q3'])\
+            .eq('fiscal_year', latest_year)\
+            .eq('fiscal_quarter', latest_q)\
             .range(offset, offset + 999).execute()
         for r in res.data:
             codes.add(r['stock_code'])
@@ -130,9 +135,13 @@ def collect_quarterly(resume=False):
     stocks_list = get_all_stocks(supabase)
 
     if resume:
-        done = get_codes_with_quarterly(supabase)
+        # 이어받기는 '최신 분기'(조회 대상 중 가장 최근 연도·분기) 유무로 판정한다.
+        # ⚠ eligible_combos()는 [올해,작년](바깥루프) × Q1→Q3(안쪽루프) 순이라 리스트가
+        #   시간순이 아니다(마지막이 2025 Q3). 반드시 (연도,분기) 정렬 최댓값을 써야 함.
+        latest_year, _, latest_q = max(eligible_combos(), key=lambda c: (c[0], c[2]))
+        done = get_codes_with_latest_quarter(supabase, latest_year, latest_q)
         remaining = [s for s in stocks_list if s['stock_code'] not in done]
-        print(f"전체: {len(stocks_list)}개 / 분기 수집 완료: {len(done)}개 / 남음: {len(remaining)}개\n")
+        print(f"전체: {len(stocks_list)}개 / 최신분기({latest_year} {latest_q}) 완료: {len(done)}개 / 남음: {len(remaining)}개\n")
     else:
         remaining = stocks_list
         print(f"전체: {len(stocks_list)}개 (처음부터)\n")
