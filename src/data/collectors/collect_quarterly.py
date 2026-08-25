@@ -65,15 +65,19 @@ REPRT_FILING_CUTOFF = {
 DART_DAILY_LIMIT = 8500  # 안전 마진 (실제 한도 10,000, 공시 수집분 여유 포함)
 
 
-def eligible_combos(today=None):
+def eligible_combos(today=None, years=None):
     """오늘 기준 '제출기한이 지나 조회 가치가 있는' (year, reprt_code, q_label) 목록.
 
     미래/미제출 분기는 여기서 빠지므로 fetch_quarter 호출 자체가 안 나가 콜을 절약한다.
     예) today=2026-06-23 → 2026 Q1 O / 2026 Q2·Q3 X / 2025 Q1·Q2·Q3 O = 4조합.
+
+    years=None이면 기본 QUARTER_YEARS(정기 수집). 백필 시엔 years=[2023,2024] 식으로 전달.
+    과거 연도는 컷오프가 전부 지난 상태라 Q1~Q3가 모두 들어온다.
     """
     today = today or datetime.today()
+    target_years = years if years is not None else QUARTER_YEARS
     combos = []
-    for year in QUARTER_YEARS:
+    for year in target_years:
         for reprt_code, q_label in REPRT_MAP.items():
             month, day = REPRT_FILING_CUTOFF[reprt_code]
             if today >= datetime(year, month, day):
@@ -81,15 +85,59 @@ def eligible_combos(today=None):
     return combos
 
 
+def get_codes_with_fy(supabase, year):
+    """해당 연도 FY(연간) 행이 있는 종목 코드 집합.
+
+    백필 절감용 프록시 + 재개 판정 분모 정의. 그 해 상장도 안 된 종목은
+    분기보고서도 없으므로(헛콜) 조회 대상에서 제외하고, 재개 시 '완료' 판정의
+    분모에서도 마이너스한다(안 그러면 영영 미완료로 남아 매 재개마다 헛조회).
+    """
+    codes = set()
+    offset = 0
+    while True:
+        res = supabase.table('financials').select('stock_code')\
+            .eq('fiscal_year', year).eq('fiscal_quarter', 'FY')\
+            .range(offset, offset + 999).execute()
+        for r in res.data:
+            codes.add(r['stock_code'])
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return codes
+
+
+def get_existing_quarter_pairs(supabase, years):
+    """대상 연도들의 기존 분기행을 {stock_code: {(year, q_label), ...}} 로 반환 (재개 판정용).
+
+    '대상 조합이 전부 채워졌는가'를 종목별로 따지기 위해 (연도,분기) 쌍을 모은다.
+    """
+    pairs = {}
+    for year in years:
+        offset = 0
+        while True:
+            res = supabase.table('financials').select('stock_code, fiscal_quarter')\
+                .eq('fiscal_year', year)\
+                .in_('fiscal_quarter', list(REPRT_MAP.values()))\
+                .range(offset, offset + 999).execute()
+            for r in res.data:
+                pairs.setdefault(r['stock_code'], set()).add((year, r['fiscal_quarter']))
+            if len(res.data) < 1000:
+                break
+            offset += 1000
+    return pairs
+
+
 def get_codes_with_latest_quarter(supabase, latest_year, latest_q):
-    """이번 시즌 '최신 분기'(예: 2026 Q2) 행이 이미 있는 종목 코드 집합 (--resume 재개 판정용).
+    """[미사용 — 참고용 보존] 이번 시즌 '최신 분기' 행이 있는 종목 집합.
+
+    2026-08 시점의 --resume 판정이었으나, 2026-08-25 B-3 백필 작업에서
+    '대상 조합 전부 채움'(get_existing_quarter_pairs 기반) 방식으로 교체됨.
+    새 방식이 '최신분기 유무'까지 포섭하므로 이 함수는 더 이상 호출되지 않는다.
+    (히스토리/교훈 보존을 위해 삭제하지 않고 남김.)
 
     ⚠ 과거 버그(2026-08 매개 수정): 예전엔 'Q1/Q2/Q3 중 아무거나 행이 있으면 완료'로 봤으나,
     그러면 새 분기를 추가하는 시즌에 '기존 분기행만 있고 최신 분기는 없는' 종목이
-    완료로 오판되어 건너뛰었다(2026 Q2 절반만 수집되는 사고). 반드시 '최신 분기'
-    유무로 판정해야 한도 분할 이어받기가 정확하다.
-
-    latest_year/latest_q는 eligible_combos()[-1]에서 넘긴다(올해 최신 분기, 하드코딩 없음).
+    완료로 오판되어 건너뛰었다(2026 Q2 절반만 수집되는 사고).
     """
     codes = set()
     offset = 0
@@ -126,32 +174,65 @@ def fetch_quarter(code, year, reprt_code):
     return None, api_calls
 
 
-def collect_quarterly(resume=False):
+def collect_quarterly(resume=False, years=None):
+    is_backfill = years is not None
+    target_years = years if years is not None else QUARTER_YEARS
+
     print("=" * 60)
-    print("분기 재무제표 수집 시작 (TTM용, 누적 기준)")
-    print(f"대상 연도: {QUARTER_YEARS} / 분기: {list(REPRT_MAP.values())}")
+    print("분기 재무제표 수집 시작 (TTM용, 누적 기준)" + ("  [백필]" if is_backfill else ""))
+    print(f"대상 연도: {target_years} / 분기: {list(REPRT_MAP.values())}")
     print("=" * 60)
 
     stocks_list = get_all_stocks(supabase)
 
-    if resume:
-        # 이어받기는 '최신 분기'(조회 대상 중 가장 최근 연도·분기) 유무로 판정한다.
-        # ⚠ eligible_combos()는 [올해,작년](바깥루프) × Q1→Q3(안쪽루프) 순이라 리스트가
-        #   시간순이 아니다(마지막이 2025 Q3). 반드시 (연도,분기) 정렬 최댓값을 써야 함.
-        latest_year, _, latest_q = max(eligible_combos(), key=lambda c: (c[0], c[2]))
-        done = get_codes_with_latest_quarter(supabase, latest_year, latest_q)
-        remaining = [s for s in stocks_list if s['stock_code'] not in done]
-        print(f"전체: {len(stocks_list)}개 / 최신분기({latest_year} {latest_q}) 완료: {len(done)}개 / 남음: {len(remaining)}개\n")
-    else:
-        remaining = stocks_list
-        print(f"전체: {len(stocks_list)}개 (처음부터)\n")
-
-    if not remaining:
-        print("✅ 모든 종목 분기 수집 완료!")
+    # 조회 대상 (연도,분기) 조합 — 과거 연도는 컷오프 전부 통과해 Q1~Q3 전부 들어옴
+    combos = eligible_combos(years=years)
+    if not combos:
+        print("⚠️ 조회 대상 분기가 없습니다(제출기한 미도래).")
         return
 
-    # 제출기한이 지난 분기만 조회 대상으로 (미래/미제출 분기 헛콜 제거)
-    combos = eligible_combos()
+    # 백필 절감 프록시: 그 해 FY 행이 있는 종목만 조회(상장도 안 된 종목 헛콜 제거).
+    #   정기 수집(years=None)은 기존처럼 전종목 대상(최신 연도는 FY가 아직 없을 수 있음).
+    fy_codes_by_year = {}
+    if is_backfill:
+        for y in target_years:
+            fy_codes_by_year[y] = get_codes_with_fy(supabase, y)
+            print(f"  FY{y} 보유 종목: {len(fy_codes_by_year[y])}개 (이 종목만 {y} 분기 조회)")
+
+    def target_combos_for(code):
+        """이 종목이 실제 조회할 조합. 백필은 FY 보유 연도만, 정기는 전체 combos."""
+        if not is_backfill:
+            return combos
+        return [(y, rc, q) for (y, rc, q) in combos if code in fy_codes_by_year.get(y, set())]
+
+    # 재개 판정: '대상 조합이 전부 채워졌는가'로 통일(백필·정기 공통).
+    #   이 방식이 2026-08 버그('아무거나 있으면 완료')와 '최신분기 유무' 둘 다를 포섭한다:
+    #   대상 조합 중 하나라도 빠지면 미완료 → 새 분기도, 백필 중단분도 정확히 이어받음.
+    if resume:
+        existing = get_existing_quarter_pairs(supabase, target_years)
+        remaining = []
+        for s in stocks_list:
+            code = s['stock_code']
+            need = {(y, q) for (y, rc, q) in target_combos_for(code)}
+            if not need:
+                continue  # 조회 대상 조합이 없는 종목(백필에서 FY 미보유) → 건너뜀
+            have = existing.get(code, set())
+            if not need.issubset(have):
+                remaining.append(s)
+        print(f"전체: {len(stocks_list)}개 / 재개 대상(대상조합 미완성): {len(remaining)}개\n")
+    else:
+        # 처음부터: 백필은 FY 보유 종목만, 정기는 전체
+        if is_backfill:
+            eligible = set().union(*fy_codes_by_year.values()) if fy_codes_by_year else set()
+            remaining = [s for s in stocks_list if s['stock_code'] in eligible]
+        else:
+            remaining = stocks_list
+        print(f"전체: {len(stocks_list)}개 / 조회 대상: {len(remaining)}개 (처음부터)\n")
+
+    if not remaining:
+        print("✅ 모든 대상 종목 분기 수집 완료!")
+        return
+
     combo_labels = ', '.join(f"{y} {q}" for y, _, q in combos)
     print(f"조회 대상 분기({len(combos)}조합): {combo_labels}")
     est_min = len(remaining) * len(combos)            # 전부 CFS 1콜
@@ -176,8 +257,8 @@ def collect_quarterly(resume=False):
         # 종목별로 모았다가 끝에서 일괄 upsert (중간 중단 시 부분 저장 방지)
         stock_rows = []
 
-        # 제출기한이 지난 (연도,분기)만 — 미래/미제출 분기는 combos에서 이미 제외됨
-        for year, reprt_code, q_label in combos:
+        # 이 종목이 조회할 (연도,분기)만 — 백필은 FY 보유 연도만(헛콜 제거)
+        for year, reprt_code, q_label in target_combos_for(code):
             try:
                 df, calls = fetch_quarter(code, year, reprt_code)
                 api_calls += calls
@@ -259,6 +340,10 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='분기 재무제표 수집 (TTM용)')
     parser.add_argument('--resume', action='store_true',
-                        help='분기 행이 이미 있는 종목은 건너뛰고 이어서 수집 (이틀 분할 재개)')
+                        help='대상 조합이 아직 다 안 채워진 종목만 이어서 수집 (한도 분할 재개)')
+    parser.add_argument('--years', type=int, nargs='+', default=None, metavar='YEAR',
+                        help='백필 대상 연도 지정 (예: --years 2023 2024). '
+                             '생략 시 기본 정기 수집(최근 2개 연도). '
+                             '과거 연도 백필은 FY 보유 종목만 조회하고 대상조합 전부 채움 기준으로 재개')
     args = parser.parse_args()
-    collect_quarterly(resume=args.resume)
+    collect_quarterly(resume=args.resume, years=args.years)
