@@ -9,6 +9,7 @@
   3. RSI/MACD 재계산 (최근 시세 기반)
   4. 기관/외국인 수급 수집 (한국투자증권 API)
   5. 원/달러 환율 수집 (ECOS API, 보조지표)
+  6. 종목 상태 스냅샷 (관리종목·거래정지 등, KIS API)
 
 실행: python src/data/collectors/daily_update.py
 """
@@ -28,6 +29,7 @@ from supabase import create_client
 import FinanceDataReader as fdr
 from kis_api import kis_get, get_access_token
 from collect_fx import update_fx
+from collect_stock_status import update_stock_status, describe
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
@@ -677,6 +679,40 @@ def update_fx_step():
 
 
 # ══════════════════════════════════════════════
+# Step 6: 종목 상태 스냅샷 (관리종목·거래정지 등)
+# ══════════════════════════════════════════════
+
+def update_stock_status_step():
+    """
+    KIS 주식현재가로 전 종목 상태 플래그를 훑어 stock_status에 업서트
+    (collect_stock_status.update_stock_status 재사용, 단일 출처).
+
+    ⚠️ Step 1(일봉)·Step 4(수급)와 **다른 엔드포인트**라 종목당 1콜이 별도로 든다.
+       두 응답 모두 상태 플래그를 담고 있지 않음(2026-08-27 실측). 전종목 ~19분.
+
+    과거 상태는 어느 소스로도 소급 복원할 수 없다 → **매일 쌓는 것 자체가 산출물**이라
+    누락된 날은 영구히 빈다. 다만 보조 데이터이므로 실패해도 Step 1~5를 막지 않게
+    try/except로 격리한다(FX Step 5와 동일 방침).
+    """
+    print("=" * 60)
+    print(f"Step 6: 종목 상태 스냅샷 - KIS API ({TODAY_STR})")
+    print("=" * 60)
+
+    try:
+        _ensure_kis_token()  # 런 도중 토큰 만료 대비 (Step 1·4와 동일 가드)
+        res = update_stock_status(supabase, executor=execute_with_retry,
+                                  snapshot_date=TODAY_STR)
+        print(f"✅ 상태 스냅샷 완료: {res['success']}/{res['total']} 성공, "
+              f"{res['skipped']}개 건너뜀, {res['errors']}개 오류, {res['saved']}행 저장")
+        print(f"   상태 플래그가 선 종목: {len(res['flagged'])}개")
+        for r in res['flagged']:
+            print(f"   · {r['stock_code']} {r['stock_name']} → {describe(r)}")
+        print()
+    except Exception as e:
+        print(f"  ⚠️ 상태 스냅샷 실패 (건너뜀, 메인 수집에 영향 없음): {e}\n")
+
+
+# ══════════════════════════════════════════════
 # 메인 실행
 # ══════════════════════════════════════════════
 
@@ -693,6 +729,7 @@ if __name__ == '__main__':
     update_technical()
     update_investor()
     update_fx_step()
+    update_stock_status_step()
 
     elapsed = time.time() - start_time
     print(f"\n{'#' * 60}")
