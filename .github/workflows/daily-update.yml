@@ -9,7 +9,9 @@ on:
 jobs:
   daily-update:
     runs-on: ubuntu-latest
-    timeout-minutes: 210
+    # 정상 실행이 ~3h23m(2,773종목 × KIS 순차 호출)이라 210분은 여유 7분라 살짝 느려지면 타임아웃 사망.
+    # 330분(5h30m)으로 상향 — 급한 불 방지(임시). 근본적으로는 Step 1·6 호출 수 감축 필요(GitHub 잡 최대 6시간).
+    timeout-minutes: 330
 
     steps:
       - name: 코드 체크아웃
