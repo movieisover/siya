@@ -728,7 +728,8 @@ if __name__ == '__main__':
     update_preferred_stocks()
     update_technical()
     update_investor()
-    update_fx_step()
+    # update_fx_step()  — 제거(2026-09-23): ECOS가 GitHub 클라우드(Azure) IP를 차단해 INFO-100 항상 실패.
+    #   로컬(한국 IP)에서만 성공 → 환율은 로컬에서 collect_fx.py로 수집(하루 1건·UPSERT).
     update_stock_status_step()
 
     elapsed = time.time() - start_time
