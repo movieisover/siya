@@ -109,22 +109,26 @@ def get_latest_dps_map():
     최근 30일 내 dps가 채워진 행 중 종목별 최신값 사용 (div_yield는 당일 종가로 재계산).
     """
     cutoff = (TODAY - timedelta(days=30)).strftime('%Y-%m-%d')
-    dps_map = {}
+    latest = {}  # code -> (trade_date, dps)  — Python에서 최신값 선택(ORDER BY 제거)
     offset = 0
     while True:
+        # ⚠ ORDER BY 제거 (2026-09-24): .order('trade_date', desc=True)가 valuation
+        #   누적(종목×거래일) 대용량 정렬을 일으켜 Supabase statement timeout(57014)으로
+        #   daily_update 전체가 죽음(execute_with_retry는 네트워크 오류만 재시도, 57014는 즉사).
+        #   5/26 get_latest_prices 수정과 동일 패턴 — DB 정렬 제거 + Python 비교.
         res = execute_with_retry(supabase.table('valuation').select(
             'stock_code, dps, trade_date'
-        ).gte('dps', 0).gte('trade_date', cutoff).order(
-            'trade_date', desc=True
-        ).range(offset, offset + 999))
+        ).gte('dps', 0).gte('trade_date', cutoff).range(offset, offset + 999))
         for r in res.data:
             code = r['stock_code']
-            if code not in dps_map:  # 날짜 내림차순이므로 첫 등장이 최신
-                dps_map[code] = r['dps']
+            td = r['trade_date']
+            prev = latest.get(code)
+            if prev is None or td > prev[0]:
+                latest[code] = (td, r['dps'])
         if len(res.data) < 1000:
             break
         offset += 1000
-    return dps_map
+    return {code: v[1] for code, v in latest.items()}
 
 
 # ══════════════════════════════════════════════

@@ -263,6 +263,18 @@
 
 ## 의사결정 기록
 
+### 2026-09-24: daily_update Step 2 statement timeout(57014) 수정 — get_latest_dps_map ORDER BY 제거
+
+증상: 추석 휴장일인데 daily-update가 평일로 인식해 돌고 **exit 1 실패**. (오늘 아침 타임아웃·ECOS와는 또 다른 세 번째 문제)
+
+- **진짜 원인**: `Step 2 update_valuation → get_latest_dps_map`의 쿼리가 `.order('trade_date', desc=True)`로 valuation 누적(종목×거래일) 대용량을 정렬 → **Supabase statement timeout `57014`**('canceling statement due to statement timeout'). 로그 마지막 줄에 명확히 찍힘.
+- **휴장과의 관계**: 직접 원인 아니다. valuation이 매일 ~2,700행씩 쌓이며 30일 윈도우 정렬량이 커지다 **임계점을 넘긴 시한폭탄이 마침 이날 터진 것** — 평일이었어도 곧 터졌음. 휴장이라 데이터는 없지만 스케줄은 평일로 돌아 무거워진 쿼리가 터짐.
+- **왜 안 잡혔나**: `execute_with_retry`는 httpx 네트워크 오류만 재시도(6/12 추가). **57014는 재시도 대상이 아니라 즉사** → exit 1.
+- **해결**: `get_latest_dps_map`에서 **ORDER BY 제거 + Python에서 종목별 최신 날짜 선택**. 5/26 `get_latest_prices`/`get_latest_valuation_dates` 수정과 **동일 패턴**(그때 안 고쳐진 같은 계열의 마지막 하나). mock 검증 통과.
+- **교훈**: (1) 누적형 테이블(valuation/price_daily) 조회는 **DB ORDER BY 금물**, Python 선택로. (2) `execute_with_retry`는 네트워크용이므로 timeout(57014)은 그걸로 안 살아남 — 쿼리 자체를 가볍게 만드는 게 정답.
+- **미착수(다음 묶음)**: `update_valuation`의 종목별 개별 price_daily 조회(2,700회, `.limit(1)`)도 장기적 병목 — 6/12 기록의 '일괄 조회 리팩터'. 병렬화와 함께 나중에.
+- **파일**: `src/data/collectors/daily_update.py`(get_latest_dps_map).
+
 ### 2026-09-24: daily_update 타임아웃 상향 + ECOS 환율 로컬 수집 전환 (GitHub 실패 두 건 해결)
 
 증상: daily-update 워크플로가 최근 자주 실패. gh run 로그로 파보니 **두 개의 별개 문제**였음.
