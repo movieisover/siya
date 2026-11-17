@@ -263,6 +263,15 @@
 
 ## 의사결정 기록
 
+### 2026-11-18: GitHub Actions cron 정각 → 비정각 이동 (스케줄 지연 대응)
+
+- **증상**: 실패는 0인데 예약 대비 실제 시작이 크게 늦음. daily-update(예약 KST 16:00) → 실제 다음날 00:14~01:53(**8~10시간 지연**), 배당(월 17:00) → 화 03:14, 공시(하루 4회 예약) → 실제 하루 ~2회(일부 drop). 결과적으로 종가 데이터가 자정 넘어 DB 반영.
+- **원인(추정)**: GitHub schedule 이벤트는 정각(:00)에 전 세계 cron이 몰려 지연·누락이 잦음(GitHub 공식 문서도 정각 회피 권장).
+- **조치**: 분만 비정각으로 이동(시간대 유지) — daily-update `17 7 * * 1-5`(KST 16:17) / 배당 `17 8 * * 1`(KST 17:17) / 공시 `13 0,3,6,9 * * 1-5`(KST 09:13·12:13·15:13·18:13).
+  - ⚠️ daily-update는 **장 마감(15:30) 이후**여야 함 — 앞당기면 당일 종가 미반영.
+- **확인 필요**: 며칠간 `gh run list`로 실제 시작 시각 관찰. 여전히 수 시간 지연되면 로컬 작업 스케줄러 보완(`scripts/daily_collect.bat` 선례) 검토.
+- **파일**: `.github/workflows/{daily-update,collect-dividends,collect-disclosures}.yml`.
+
 ### 2026-09-24: daily_update Step 2 statement timeout(57014) 수정 — get_latest_dps_map ORDER BY 제거
 
 증상: 추석 휴장일인데 daily-update가 평일로 인식해 돌고 **exit 1 실패**. (오늘 아침 타임아웃·ECOS와는 또 다른 세 번째 문제)

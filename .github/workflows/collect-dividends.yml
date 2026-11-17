@@ -2,8 +2,8 @@ name: 시야 배당 수집 (주 1회) — DPS/수익률 + 배당 일정
 
 on:
   schedule:
-    # 매주 월요일 KST 17:00 (UTC 08:00) — daily-update 이후
-    - cron: '0 8 * * 1'
+    # 매주 월요일 KST 17:17 (UTC 08:17) — daily-update 이후, 정각 혼잡 회피 (2026-11-18)
+    - cron: '17 8 * * 1'
   workflow_dispatch:  # 수동 실행 버튼
 
 jobs:
