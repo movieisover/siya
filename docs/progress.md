@@ -11,6 +11,25 @@
 ## 의사결정 기록
 
 
+### 2026-11-19: 🚨 daily_update 종목 무작위 누락 — 정렬 없는 range 페이지네이션 일괄 수정
+
+- **발견 경위**: compute_ttm 누락 버그(아래 항목) 후속 점검 중, 11/18 실행 데이터가 단계별로 크게 비어 있음을 발견.
+  - 시세 1,974(정상 ~2,712, **738 누락**) / 수급 2,135(**577**) / 종목상태 2,287(정상 2,773, **471**) / valuation 1,842(**694**).
+  - **누락 집합이 단계마다 다름**(세 단계 공통 누락 25개뿐), 종목코드 전 구간(000087~950200)에 분산 → KIS 장애(동일·연속 구간 누락 예상)가 아니라, 단계마다 호출하는 `get_all_stocks()`의 **정렬 없는 `range()` 페이지네이션이 매번 다른 종목을 떨굴 것**과 정합.
+  - 과거일은 20일 백필(여러 실행의 합집합)로 메꿔져 안 드러났음. **종목상태는 날짜별 스냅샷이라 소급 불가 → 11/18 471종목 영구 결측**(시야트레이더 체결 게이트 영향 — 직전 스냅샷 끌어쓰기 전제 유지).
+- **수정(매일 실행 경로 우선)**:
+  - `daily_update.get_all_stocks` → `.order('stock_code')` (단계 1·2·4·6 종목 목록)
+  - `daily_update` fin_map → `.order('fiscal_year', desc).order('stock_code')` (fiscal_year만으로는 동점 수천 행이라 불안정)
+  - `daily_update` ttm_map → `.order('stock_code')`
+  - `daily_update.get_latest_dps_map` → `.order('stock_code').order('trade_date')`
+  - `collect_stock_status._fetch_all_stocks` → `.order('stock_code')`
+  - `utils.get_all_stocks`(수동 수집기 공용) → `.order('stock_code')`
+- **57014 재발 검증(EXPLAIN ANALYZE)**: valuation DPS 쿼리를 `stock_code, trade_date` 순 정렬 시 **유니크 인덱스 `(stock_code, trade_date)` 순서 그대로 — Sort 노드 없음, 187ms**(무정렬 184ms와 동일). 참고로 `id DESC` 정렬은 external merge sort 2.1s라 기각. fin_map은 FY 7,603행 quicksort 40ms. stocks·ttm_earnings는 PK(stock_code) 인덱스.
+- **라이브러리 확인**: postgrest-py 2.34(Actions는 최신 supabase 설치)에서 `.order().order()` 체인이 `order=a.asc,b.asc` 단일 파라미터로 합쳐짐 확인. 전 파일 문법 검사 통과.
+- **미착수(낮음, 다음 세션)**: `collect_quarterly`(get_codes_with_fy·get_existing_quarter_pairs·get_codes_with_latest_quarter), `collect_financials`(remigrate/expand 게이트 2곳), `utils.get_collected_codes`, `collect_dividends_kis`(3곳), `collect_dividend_schedule`, `collect_disclosures`, `calc_valuation`(fiscal_year 단독 정렬), `collect_price_daily`, `update_financials_2025`, `check_quarterly_coverage`. 프론트 `useChartData`는 이미 정렬 있음(정상).
+- **확인 필요**: 다음 daily_update 실행 후 단계별 행 수가 2,7xx로 복구되는지(시세·수급·상태·valuation).
+- **파일**: `src/data/collectors/daily_update.py`, `collect_stock_status.py`, `utils.py`.
+
 ### 2026-11-19: collect_quarterly 분기 증분 모드(`--quarters`) 신설 — 2026 Q3 시즌
 
 - **배경**: 11/15 Q3 제출기한 경과 → 2026 Q3 수집 시즌. 기존 절차(6/24 기록)는 '`--resume` 없이 전체 재실행'인데, 정기 수집은 최근 2년 **6조합 전부**(2025 Q1~Q3·2026 Q1~Q3)를 재조회 → ~22,000콜·3일. 실제 필요는 2026 Q3 1조합뿐(2025 FY/Q3·2026 Q1/Q2 DB 보유 확인: 2,612/2,582/2,565/2,540행).
@@ -21,7 +40,7 @@
 - **수집 결과** (`logs/quarterly_2026Q3_20261119.log`): 성공 **2,528** / 건너뜀 245 / 오류 0 / DART **3,181콜**(1회 완주). DB 2026 Q3 2,528행, 채움률 owners 99.8% · cfo 99.96% · 매출총이익 90.7%. 누적 정합(Q3 누적 > Q2 누적) 삼성·현대차·하이닉스 확인.
 - **TTM 결과**: `compute_ttm` 2026Q3 자동 감지 → basis **ttm 2,450 / annual 323**(missing_quarter 40 · unknown_settle 120 · spac 79 · non_dec 54 · missing_fy 21 · null_owners 9) — SQL 독립 계산과 완전 일치. 검산: 삼성 44.26+193.58−24.97=212.87조 / 하이닉스 42.92+173.68−27.70=188.90조 / 현대차 9.45+6.56−8.42=7.59조.
 - **🚨 발견·수정 — compute_ttm 페이지네이션 누락 버그**: 1차 실행에서 2025Q3를 **2,147행만 로드**(DB엔 2,582) → ttm 2,022 / missing_quarter 468로 오폴백. 원인: `fetch_all`의 `range()` 쿼리에 **ORDER BY 없음** → PostgREST가 페이지마다 다른 순서로 반환해 행이 중복·누락(dict로 받으니 중복은 사라지고 누락만 남음). 이전 시즌에도 잠복했을 가능성(Q2 기준 missing_quarter 50 중 일부). **수정**: `load_financial_point`·`detect_ttm_period`에 `.order('id')`(financials PK), `load_stocks_meta`에 `.order('stock_code')`. 재실행으로 위 정상값 확인. → **핵심규칙 13 신설.**
-- **후속 점검(미착수)**: 같은 패턴(정렬 없는 range 페이지네이션)이 다른 수집기에도 있음 — `collect_quarterly.get_codes_with_fy`/`get_existing_quarter_pairs`(--resume 판정), `utils.get_all_stocks` 등 전수 점검 필요. 별건으로 SK하이닉스 2026 Q2 행 `net_income_owners`(134.2조) > `revenue`(131.9조) 이상치 — 일회성 이익인지 DART 원본 오류인지 확인 필요(Q3 기준 TTM엔 Q2 미사용이라 현재 무영향).
+- **후속 점검(미착수)**: 같은 패턴(정렬 없는 range 페이지네이션)이 다른 수집기에도 있음 — `collect_quarterly.get_codes_with_fy`/`get_existing_quarter_pairs`(--resume 판정), `utils.get_all_stocks` 등 전수 점검 필요. 별건 SK하이닉스 2026 Q2 `net_income_owners`(134.2조) > `revenue`(131.9조) — **✅ 확인 완료, 실제 실적(오류 아님)**: Q2 단독(누적차) 매출 79조3,187억·순이익 93조9,226억이 회사 발표(2026-07-29)와 억 단위 일치. 키옥시아 지분 평가·처분이익으로 영업외이익 ~62조, 자본도 동일 폭 증가(내적 정합). 시사점: 일회성 이익이 TTM에 포함돼 PER이 실력 대비 낮게 보임 — 순이익 기준 PER은 업계 표준이라 유지, '일회성 이익 비중 큰 종목 표시'는 향후 설계 과제.
 - **이후 절차**: daily_update Step 2가 새 `ttm_earnings`로 PER 재계산(자동).
 - **파일**: `src/data/collectors/collect_quarterly.py`(--quarters/--dry-run), `src/data/collectors/compute_ttm.py`(정렬 추가), `CLAUDE.md`(핵심규칙 7·13, 로컬 명령어).
 
