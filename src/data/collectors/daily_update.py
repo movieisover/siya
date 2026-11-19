@@ -93,7 +93,9 @@ def get_all_stocks():
     while True:
         res = execute_with_retry(supabase.table('stocks').select(
             'stock_code, stock_name, market'
-        ).eq('is_active', True).range(offset, offset + 999))
+        ).eq('is_active', True).order('stock_code').range(offset, offset + 999))
+        # ⚠ .order(PK) 필수(핵심규칙 13) — 없으면 페이지마다 순서가 달라 종목 중복·누락.
+        #   2026-11-18 실행에서 단계별로 471~738종목이 무작위 누락된 원인.
         stocks.extend(res.data)
         if len(res.data) < 1000:
             break
@@ -118,7 +120,10 @@ def get_latest_dps_map():
         #   5/26 get_latest_prices 수정과 동일 패턴 — DB 정렬 제거 + Python 비교.
         res = execute_with_retry(supabase.table('valuation').select(
             'stock_code, dps, trade_date'
-        ).gte('dps', 0).gte('trade_date', cutoff).range(offset, offset + 999))
+        ).gte('dps', 0).gte('trade_date', cutoff)
+            .order('stock_code').order('trade_date').range(offset, offset + 999))
+        #   ↑ (stock_code, trade_date) 유니크 인덱스 순서 그대로라 Sort 노드 없음(EXPLAIN 187ms,
+        #     무정렬과 동일) — 57014를 낸 trade_date DESC 정렬과 다름. 핵심규칙 13.
         for r in res.data:
             code = r['stock_code']
             td = r['trade_date']
@@ -271,7 +276,9 @@ def update_valuation():
     while True:
         res = execute_with_retry(supabase.table('financials').select(
             'stock_code, net_income, net_income_owners, total_equity, equity_owners, fiscal_year'
-        ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).range(offset, offset + 999))
+        ).eq('fiscal_quarter', 'FY').order('fiscal_year', desc=True).order('stock_code')
+            .range(offset, offset + 999))
+        #   ↑ fiscal_year만으론 동점(같은 연도 수천 행)이라 페이지 경계가 불안정 → stock_code 동점 해소.
         for r in res.data:
             if r['stock_code'] not in fin_map:
                 fin_map[r['stock_code']] = r
@@ -284,7 +291,7 @@ def update_valuation():
     offset = 0
     while True:
         res = execute_with_retry(supabase.table('ttm_earnings').select(
-            'stock_code, ttm_net_income_owners, basis').range(offset, offset + 999))
+            'stock_code, ttm_net_income_owners, basis').order('stock_code').range(offset, offset + 999))
         for r in res.data:
             ttm_map[r['stock_code']] = r
         if len(res.data) < 1000:

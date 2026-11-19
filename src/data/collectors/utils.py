@@ -29,7 +29,7 @@ def get_all_stocks(supabase):
     while True:
         result = supabase.table('stocks').select(
             'stock_code, stock_name, market'
-        ).range(offset, offset + page_size - 1).execute()
+        ).order('stock_code').range(offset, offset + page_size - 1).execute()  # 핵심규칙 13
         stocks_list.extend(result.data)
         if len(result.data) < page_size:
             break

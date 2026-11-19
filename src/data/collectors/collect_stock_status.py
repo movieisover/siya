@@ -64,6 +64,7 @@ def _fetch_all_stocks(sb, executor):
     while True:
         res = executor(sb.table('stocks')
                          .select('stock_code, stock_name')
+                         .order('stock_code')  # 핵심규칙 13 — 없으면 종목 누락(11/18 471종목 스냅샷 영구 결측)
                          .range(offset, offset + 999))
         rows.extend(res.data)
         if len(res.data) < 1000:
