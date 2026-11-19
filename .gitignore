@@ -54,4 +54,7 @@ supabase/.temp/
 Thumbs.db
 
 # OpenDartReader 회사코드 캐시 (날짜별 8MB 바이너리, 자동 재생성)
-docs_cache/*.pkl
+**/docs_cache/*.pkl
+
+# Claude Code 로컬 설정 (머신별 권한 허용목록, 공유 불필요)
+.claude/settings.local.json
