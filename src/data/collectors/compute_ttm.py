@@ -48,6 +48,10 @@ _QUARTER_SUBMIT_RATIO = 0.7
 
 
 def fetch_all(query_builder):
+    """range() 페이지네이션. ⚠ query_builder는 반드시 안정 정렬(.order(PK))을 포함해야 한다.
+    ORDER BY 없는 range()는 페이지마다 순서가 달라져 행이 중복·누락된다
+    (2026-11-19: 2025Q3 2,582행 중 2,147만 로드돼 TTM 420종목이 연간 폴백된 사고).
+    PK 정렬은 인덱스 로 처리돼 핵심규칙 6(누적형 테이블 대용량 정렬 금지)과 무관."""
     rows, off = [], 0
     while True:
         r = query_builder(off).execute()
@@ -61,7 +65,8 @@ def fetch_all(query_builder):
 def load_stocks_meta():
     """{code: (settle_month, stock_name)}."""
     rows = fetch_all(lambda o: supabase.table('stocks')
-                     .select('stock_code, settle_month, stock_name').range(o, o + 999))
+                     .select('stock_code, settle_month, stock_name')
+                     .order('stock_code').range(o, o + 999))
     return {r['stock_code']: (r['settle_month'], r['stock_name'] or '') for r in rows}
 
 
@@ -73,7 +78,7 @@ def load_financial_point(fiscal_year, fiscal_quarter, source=None):
             .eq('fiscal_year', fiscal_year).eq('fiscal_quarter', fiscal_quarter)
         if source:
             q = q.eq('source', source)
-        return q.range(o, o + 999)
+        return q.order('id').range(o, o + 999)
     rows = fetch_all(qb)
     return {r['stock_code']: r for r in rows}
 
@@ -92,7 +97,7 @@ def detect_ttm_period():
     """
     rows = fetch_all(lambda o: supabase.table('financials')
                      .select('fiscal_year, fiscal_quarter')
-                     .eq('source', 'dart_q').range(o, o + 999))
+                     .eq('source', 'dart_q').order('id').range(o, o + 999))
     cnt = Counter((r['fiscal_year'], r['fiscal_quarter']) for r in rows)
     if not cnt:
         raise RuntimeError("분기행(source='dart_q')이 없습니다 — collect_quarterly.py 먼저 실행 필요")

@@ -10,6 +10,9 @@ TTM(최근 4분기) 계산용 분기 누적 재무를 Supabase financials 테이
 실행:
   python src/data/collectors/collect_quarterly.py            # 처음부터
   python src/data/collectors/collect_quarterly.py --resume   # 분기 행 있는 종목 건너뛰고 이어서
+  python src/data/collectors/collect_quarterly.py --quarters 2026Q3   # 새 분기만 증분 수집
+      → 시즌마다 새 분기 1개만 받으면 될 때 사용(기존 분기 재조회 없음, ~1/6 콜).
+        한도 분할 시 다음날 `--quarters 2026Q3 --resume`으로 이어받기.
 
 참고: DART API 일 10,000건 제한(공시 수집과 한도 풀 공유). 미제출 분기는 제출기한
       컷오프(REPRT_FILING_CUTOFF)로 조회 자체를 건너뛴다 → 헛콜 제거.
@@ -174,22 +177,52 @@ def fetch_quarter(code, year, reprt_code):
     return None, api_calls
 
 
-def collect_quarterly(resume=False, years=None):
+def parse_quarters(specs):
+    """['2026Q3', '2026q2'] → {(2026, 'Q3'), (2026, 'Q2')}. 형식 오류면 ValueError."""
+    out = set()
+    valid_q = set(REPRT_MAP.values())
+    for spec in specs:
+        s = spec.strip().upper()
+        if len(s) != 6 or not s[:4].isdigit() or s[4:] not in valid_q:
+            raise ValueError(f"분기 형식 오류: '{spec}' (예: 2026Q3, Q1~Q3만 가능)")
+        out.add((int(s[:4]), s[4:]))
+    return out
+
+
+def collect_quarterly(resume=False, years=None, quarters=None):
+    """quarters: {(year, 'Q3'), ...} 지정 시 그 분기만 수집(증분 모드).
+    전종목 대상(정기 수집과 동일), 제출기한 컷오프는 그대로 적용."""
+    if quarters and years is not None:
+        print("⚠️ --quarters와 --years는 함께 쓸 수 없습니다.")
+        return
     is_backfill = years is not None
-    target_years = years if years is not None else QUARTER_YEARS
+    if quarters:
+        target_years = sorted({y for y, _ in quarters}, reverse=True)
+    else:
+        target_years = years if years is not None else QUARTER_YEARS
 
+    mode = "  [백필]" if is_backfill else ("  [증분]" if quarters else "")
     print("=" * 60)
-    print("분기 재무제표 수집 시작 (TTM용, 누적 기준)" + ("  [백필]" if is_backfill else ""))
-    print(f"대상 연도: {target_years} / 분기: {list(REPRT_MAP.values())}")
+    print("분기 재무제표 수집 시작 (TTM용, 누적 기준)" + mode)
+    if quarters:
+        print(f"대상 분기: {', '.join(f'{y} {q}' for y, q in sorted(quarters))}")
+    else:
+        print(f"대상 연도: {target_years} / 분기: {list(REPRT_MAP.values())}")
     print("=" * 60)
-
-    stocks_list = get_all_stocks(supabase)
 
     # 조회 대상 (연도,분기) 조합 — 과거 연도는 컷오프 전부 통과해 Q1~Q3 전부 들어옴
-    combos = eligible_combos(years=years)
+    if quarters:
+        combos = [c for c in eligible_combos(years=target_years) if (c[0], c[2]) in quarters]
+        missing = quarters - {(c[0], c[2]) for c in combos}
+        if missing:
+            print(f"⚠️ 제출기한 미도래로 제외: {', '.join(f'{y} {q}' for y, q in sorted(missing))}")
+    else:
+        combos = eligible_combos(years=years)
     if not combos:
         print("⚠️ 조회 대상 분기가 없습니다(제출기한 미도래).")
         return
+
+    stocks_list = get_all_stocks(supabase)
 
     # 백필 절감 프록시: 그 해 FY 행이 있는 종목만 조회(상장도 안 된 종목 헛콜 제거).
     #   정기 수집(years=None)은 기존처럼 전종목 대상(최신 연도는 FY가 아직 없을 수 있음).
@@ -345,5 +378,20 @@ if __name__ == '__main__':
                         help='백필 대상 연도 지정 (예: --years 2023 2024). '
                              '생략 시 기본 정기 수집(최근 2개 연도). '
                              '과거 연도 백필은 FY 보유 종목만 조회하고 대상조합 전부 채움 기준으로 재개')
+    parser.add_argument('--quarters', nargs='+', default=None, metavar='YYYYQn',
+                        help='증분 모드: 지정 분기만 수집 (예: --quarters 2026Q3). '
+                             '새 분기 시즌에 기존 분기 재조회 없이 1개만 받을 때. '
+                             '한도 분할 시 --resume과 함께 사용')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='조회 대상 조합만 출력하고 종료 (DART·DB 호출 없음)')
     args = parser.parse_args()
-    collect_quarterly(resume=args.resume, years=args.years)
+    q = parse_quarters(args.quarters) if args.quarters else None
+    if args.dry_run:
+        if q:
+            ty = sorted({y for y, _ in q}, reverse=True)
+            cs = [c for c in eligible_combos(years=ty) if (c[0], c[2]) in q]
+        else:
+            cs = eligible_combos(years=args.years)
+        print(f"[dry-run] 조회 대상 {len(cs)}조합: " + ', '.join(f'{y} {ql}' for y, _, ql in cs))
+        sys.exit(0)
+    collect_quarterly(resume=args.resume, years=args.years, quarters=q)
