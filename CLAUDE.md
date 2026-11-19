@@ -62,17 +62,18 @@
 4. **분기 누적**: 분기 재무는 `thstrm_add_amount`(누적) 기준 — Q1=3개월, Q2=6개월, Q3=9개월. 연간·1Q는 `thstrm_amount`.
 5. **재무는 원자료만 저장**(매출총이익·CFO·현금성 등 확장 6컬럼), 비율·팩터 산출은 소비자(시야트레이더)가. 추출 시 **0과 None을 구분**한다(`_first` 헬퍼 — SPAC `Revenue=0`이 falsy라 금융수익을 매출로 오추출한 버그 교훈).
 6. **누적형 테이블(`valuation`·`price_daily`) 조회에 DB `ORDER BY` 금물** → 전부 받아 Python에서 최신 선택. 대용량 정렬은 Supabase **statement timeout(57014)**로 daily_update를 즉사시킨다(`execute_with_retry`는 네트워크 오류만 재시도, 57014는 재시도 안 됨).
-7. **`collect_quarterly` 재개 = '대상 조합 전부 채움' 기준.** **새 분기 추가 수집은 `--resume` 금지**(전체 재실행해야 새 분기가 들어옴). `--resume`은 한도 분할 이어받기(같은 분기셋)에만 쓴다. (2026 Q2 절반 누락 사고 교훈.)
+7. **`collect_quarterly` 재개 = '대상 조합 전부 채움' 기준.** **새 분기 시즌은 `--quarters YYYYQn` 증분 수집**(새 분기 1개만, ~3,700콜·1일). 첫 실행에 `--resume` 금지, `--resume`은 한도 분할 이어받기(같은 대상셋, 예: `--quarters 2026Q3 --resume`)에만 쓴다. 인자 없는 전체 재실행은 과거 분기 재수집이 필요할 때만(컬럼 추가 백필 등). (2026 Q2 절반 누락 사고 교훈.)
 8. **로컬 Python 실행**: `conda activate siya`(`C:\Users\easte\.conda\envs\siya`) + `set PYTHONIOENCODING=utf-8`. 안 하면 진행 이모지(⏳✅)가 cp949로 크래시.
 9. **환율(ECOS)은 GitHub에서 못 받는다** — 클라우드(Azure) IP를 ECOS가 유해 IP로 차단(INFO-100). 로컬(한국 IP) `run_fx.bat`로만 수집. daily_update Step 5는 제거됨.
 10. **KIS 실시간/현재가는 클라우드에서 차단** — Edge Function·해외 IP라 KIS가 막는다. 배치(REST)만 가능. 실시간은 한국 서버 필요(`docs/roadmap.md`).
 11. **`stock_status`는 판정하지 않고 KIS 원값만 저장**. `iscd_stat_cls_code=51`(관리) ≠ `mang_issu_cls_code=Y` — 거래정지(58)면 51이 덮이니 **두 필드를 따로** 봐야 관리종목을 안 놓친다.
 12. **점수·UI 문자열은 DB에 저장 안 함** — 원본값만 저장하고 점수는 앱에서 계산.
+13. **`range()` 페이지네이션엔 반드시 PK 정렬(`.order('id')` 등)**. 정렬 없는 range()는 페이지마다 순서가 달라져 행이 **중복·누락**된다(2026-11-19 compute_ttm이 2025Q3 2,582행 중 2,147만 로드 → TTM 420종목 오폴백). PK 정렬은 인덱스라 가볍다 — 규칙 6(대용량 `trade_date` 정렬 금지)과 별개.
 
 ## 로컬 명령어
 - (전제) `conda activate siya` + `set PYTHONIOENCODING=utf-8`
 - 재무 연간: `python src/data/collectors/collect_financials.py` (`--expand` 확장컬럼 / `--remigrate` 지배주주)
-- 재무 분기: `python src/data/collectors/collect_quarterly.py` (`--years 2023 2024` 백필 / `--resume` 한도분할만)
+- 재무 분기: `python src/data/collectors/collect_quarterly.py --quarters 2026Q3` (시즌 증분 — 기본) / 인자 없음=최근 2년 전체 / `--years 2023 2024` 백필 / `--resume` 한도분할만 / `--dry-run` 대상 조합만 확인
 - TTM: `python src/data/collectors/compute_ttm.py`
 - 환율 수동: `python src/data/collectors/collect_fx.py --days 10`
 
